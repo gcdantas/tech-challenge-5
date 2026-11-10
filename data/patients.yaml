@@ -1,8 +1,10 @@
 # Pacientes SINTÉTICOS da demonstração técnica (responsável: I4).
 #
-# Os dados de cada paciente vêm de fontes distintas (gravações da equipe,
-# PhysioNet, notas escritas pela equipe) e foram associados apenas para a
-# demonstração técnica. Nenhum paciente aqui é uma pessoa real internada.
+# Os dados de cada paciente vêm de fontes distintas (vídeos dos datasets
+# públicos REHAB24-6 e Charades, PhysioNet, notas escritas pela equipe) e foram
+# associados apenas para a demonstração técnica. Nenhum paciente aqui é uma
+# pessoa real internada. Vídeos: python -m data.download_rehab24 e
+# python -m data.download_charades.
 #
 # Alinhamento temporal (plano v5, correção 7):
 #   instante_demo = demo_reference + demo_offset + tempo_interno_da_mídia
@@ -24,11 +26,13 @@ patients:
     artifacts:
       video_fisio:
         kind: video_physio
-        path: data/video/P001_fisio.mp4
+        # REHAB24-6, agachamento (pessoa 6), câmera 18; 110 s
+        path: data/video/rehab24-6/PM_105-Camera18-30fps-transposed.mp4
         demo_offset: 0          # 10:00:00
       video_leito:
         kind: video_bed
-        path: data/video/P001_leito.mp4
+        # Charades SSP8C: deitada na cama, levanta-se por volta de 18 s; 30 s
+        path: data/video/charades/SSP8C.mp4
         demo_offset: 600        # 10:10:00
       consulta:
         kind: audio

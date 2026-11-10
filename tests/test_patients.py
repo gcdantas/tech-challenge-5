@@ -28,8 +28,9 @@ def test_demo_time_soma_offset_e_tempo_da_midia():
 
 def test_busca_artefato_pelo_caminho_relativo_ou_absoluto():
     pf = load_patients()
-    rel = pf.find_artifact_by_path("P001", "data/video/P001_fisio.mp4")
-    absol = pf.find_artifact_by_path("P001", REPO_ROOT / "data" / "video" / "P001_fisio.mp4")
+    fisio = pf.artifact("P001", "video_fisio").path
+    rel = pf.find_artifact_by_path("P001", fisio)
+    absol = pf.find_artifact_by_path("P001", REPO_ROOT / fisio)
     assert rel is not None and rel[0] == "video_fisio"
     assert absol == rel
     assert pf.find_artifact_by_path("P001", "data/video/outro.mp4") is None

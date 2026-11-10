@@ -1,4 +1,5 @@
-"""Gera os mocks da semana 1 (marco M1) de I1, I2 e I3 em outputs/.
+"""Gera os mocks (marco M1) do Integrante 1 (vídeo), do Integrante 2 (áudio e texto)
+e do Integrante 3 (anomalias) em outputs/.
 
 TODOS OS DADOS GERADOS AQUI SÃO FICTÍCIOS. Servem só para o pipeline rodar
 de ponta a ponta antes dos módulos reais. Marcação:
@@ -87,8 +88,11 @@ def _mock_finding(
 # --------------------------------------------------------------------------- I1
 
 
-def movement_mock(pf: PatientsFile, duration_s: float = 60.0, exit_at_s: float = 40.0) -> pd.DataFrame:
+def movement_mock(pf: PatientsFile, duration_s: float = 30.0, exit_at_s: float = 14.4) -> pd.DataFrame:
     """Série sintética a 5 Hz: paciente parado no leito e, a partir de ``exit_at_s``, saindo.
+
+    Duração e instante de saída imitam o vídeo real do leito do P001 (Charades
+    SSP8C, 30 s): ``in_bed`` vira false aos 18,0 s, como na série real.
 
     Unidades (provisórias): centroide normalizado 0–1 no quadro; torso_angle em graus
     em relação à vertical (0 = em pé, 90 = deitado); velocidade em unidades
@@ -209,7 +213,7 @@ def transcript_mock(pf: PatientsFile) -> dict[str, Any]:
         )
     return {
         "mock": True,
-        "aviso": "Transcrição FICTÍCIA escrita à mão para o mock da semana 1 (I2).",
+        "aviso": "Transcrição FICTÍCIA escrita à mão para o mock do Integrante 2.",
         "patient_id": PATIENT,
         "audio": art.path,
         "language": "pt-BR",
@@ -330,7 +334,7 @@ def make_all(
         written["movement"] = write_movement_parquet(
             movement,
             out / "video" / PATIENT / "movement.parquet",
-            {"mock": "true", "generator": "scripts/make_mocks.py", "aviso": "Série FICTÍCIA (mock da semana 1, I1)"},
+            {"mock": "true", "generator": "scripts/make_mocks.py", "aviso": "Série FICTÍCIA (mock do Integrante 1)"},
         )
     if "i2" not in skip:
         written["audio_findings"] = write_findings(out / "audio" / PATIENT / "findings.jsonl", audio)

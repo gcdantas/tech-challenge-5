@@ -3,12 +3,12 @@
 Requisito obrigatório do enunciado: rodar o OpenPose em pelo menos um vídeo de
 fisioterapia e guardar os quadros com o esqueleto anotado.
 
-    python -m modules.video.openpose --input data/video/P001_fisio.mp4 --patient P001 [--max-frames 20]
+    python -m modules.video.openpose --input data/video/rehab24-6/PM_105-Camera18-30fps-transposed.mp4 --patient P001 [--max-frames 20]
 
 Abordagem de pessoa única (máximo de cada mapa de calor), adequada à sessão de
 fisioterapia com um paciente em cena. O build do OpenCV do PyPI roda o DNN em
 CPU; por isso o OpenPose processa só ``max_frames`` quadros espalhados pelo
-vídeo. A comparação completa OpenPose × YOLOv8-pose é desejável (semana 4);
+vídeo. A comparação completa OpenPose × YOLOv8-pose é desejável (Integrante 1);
 os keypoints ficam salvos em runs/openpose_<video>.json para ela.
 """
 

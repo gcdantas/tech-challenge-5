@@ -76,7 +76,7 @@ for err in loaded.errors:
 df = findings_dataframe(loaded.findings)
 if not df.empty and df["mock"].any():
     st.warning(
-        "Há Findings FICTÍCIOS (mocks da semana 1) na tela. Gere-os de novo com "
+        "Há Findings FICTÍCIOS (mocks do M1) na tela. Gere-os de novo com "
         "`python -m scripts.make_mocks`."
     )
 
@@ -91,7 +91,7 @@ for a in sorted(patient_alerts, key=lambda a: (a.level != "critico", a.created_a
         f"{a.description}  \nFindings: {len(a.finding_ids)}"
     )
     {"critico": st.error, "urgente": st.warning, "atencao": st.info}[a.level](msg)
-st.caption(f"Alertas gravados em `{alerts_path}`. Envio de e-mail ainda não implementado (I4).")
+st.caption(f"Alertas gravados em `{alerts_path}`. Envio de e-mail ainda não implementado (Integrante 4).")
 
 # --- Linha do tempo -----------------------------------------------------------
 st.subheader("Linha do tempo multimodal")
@@ -134,7 +134,7 @@ else:
 # --- Detalhes por modalidade -------------------------------------------------
 col1, col2 = st.columns(2)
 with col1:
-    st.subheader("Série de movimentação (I1 → I3)")
+    st.subheader("Série de movimentação (Integrante 1 → Integrante 3)")
     mov = load_movement(out_dir, patient_id)
     if mov is None:
         st.info("movement.parquet não encontrado.")
@@ -143,7 +143,7 @@ with col1:
         st.line_chart(mov.set_index("timestamp")[["centroid_x", "centroid_y"]])
         st.area_chart(mov.set_index("timestamp")["in_bed"].astype(int), height=120)
 with col2:
-    st.subheader("Transcrição da consulta (I2)")
+    st.subheader("Transcrição da consulta (Integrante 2)")
     tr = load_transcript(out_dir, patient_id)
     if tr is None:
         st.info("transcript.json não encontrado.")

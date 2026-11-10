@@ -1,6 +1,6 @@
 """CLI do módulo de vídeo.
 
-    python -m modules.video.run --input data/video/P001_fisio.mp4 --patient P001 \
+    python -m modules.video.run --input data/video/rehab24-6/PM_105-Camera18-30fps-transposed.mp4 --patient P001 \
         --out outputs/video/P001/findings.jsonl
 
 Aceita vários --input do mesmo paciente; os Findings de todos os vídeos de

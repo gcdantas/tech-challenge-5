@@ -1,8 +1,8 @@
 # MODELO de rótulos manuais de um vídeo (I1). Copie para
 # data/labels/<nome_do_video_sem_extensao>.yaml, por exemplo
-# data/labels/P001_fisio.yaml. Tempos em segundos desde o início do vídeo.
+# data/labels/PM_105-Camera18-30fps-transposed.yaml. Tempos em segundos desde o início do vídeo.
 
-video: data/video/P001_fisio.mp4
+video: data/video/rehab24-6/PM_105-Camera18-30fps-transposed.mp4
 
 # Fisioterapia: início, fim e tipo de cada desvio observado.
 # Tipos: amplitude_incompleta | postura_fora_padrao
