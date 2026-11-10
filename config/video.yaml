@@ -1,5 +1,7 @@
 # Módulo de vídeo (I1). Limiares das regras e parâmetros dos modelos.
-# Valores iniciais PROVISÓRIOS: calibrar com os vídeos reais e os rótulos manuais.
+# Limiares das regras de fisioterapia calibrados para agachamento de PERFIL com o
+# REHAB24-6 (python -m notebooks.rehab24.calibracao; README, seção 7.6). Os demais
+# parâmetros são valores iniciais.
 
 models:
   pose: weights/yolov8n-pose.pt      # YOLOv8-pose (keypoints COCO-17)
@@ -43,7 +45,9 @@ physio:
       # Pico esperado do ângulo principal em cada repetição (graus).
       # decrease: o pico (mínimo) deve chegar a <= expected[1]
       # increase: o pico (máximo) deve chegar a >= expected[0]
-      expected: [70, 100]
+      # 115°: logo acima do maior pico de agachamento CORRETO de perfil observado
+      # no REHAB24-6 (111°, 6 pessoas). Antes da calibração: 100°.
+      expected: [70, 115]
       score_full_deviation: 60       # desvio (graus) em que o score chega a 1
       severity:                      # desvio mínimo (graus) -> severidade
         - {min_deviation: 0, severity: low}
@@ -52,7 +56,9 @@ physio:
 
     postura_fora_padrao:
       metric: trunk_angle            # inclinação do tronco em relação à vertical (graus)
-      expected: [0, 45]
+      # 35°: valor mais escolhido na calibração deixando uma pessoa de fora
+      # (REHAB24-6, perfil). Antes da calibração: 45°.
+      expected: [0, 35]
       min_duration_s: 0.5            # tempo mínimo fora da faixa dentro da repetição
       score_full_deviation: 40
       severity:
