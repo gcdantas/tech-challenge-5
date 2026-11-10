@@ -1,0 +1,14 @@
+# MODELO de rótulos manuais de um vídeo (I1). Copie para
+# data/labels/<nome_do_video_sem_extensao>.yaml, por exemplo
+# data/labels/P001_fisio.yaml. Tempos em segundos desde o início do vídeo.
+
+video: data/video/P001_fisio.mp4
+
+# Fisioterapia: início, fim e tipo de cada desvio observado.
+# Tipos: amplitude_incompleta | postura_fora_padrao
+events:
+  - {type: amplitude_incompleta, start: 12.0, end: 18.5}
+  - {type: postura_fora_padrao, start: 31.0, end: 36.0}
+
+# Leito: instantes em que o paciente sai do leito (repassados ao I3).
+bed_exits: []

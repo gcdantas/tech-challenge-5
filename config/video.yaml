@@ -1,0 +1,89 @@
+# Módulo de vídeo (I1). Limiares das regras e parâmetros dos modelos.
+# Valores iniciais PROVISÓRIOS: calibrar com os vídeos reais e os rótulos manuais.
+
+models:
+  pose: weights/yolov8n-pose.pt      # YOLOv8-pose (keypoints COCO-17)
+  detect: weights/yolov8n.pt         # YOLOv8 (pessoa e leito, classes COCO)
+  device: null                       # null = automático (GPU se o torch tiver CUDA)
+  imgsz: 640
+  conf: 0.25
+  min_keypoint_conf: 0.3             # keypoint abaixo disso é tratado como ausente
+
+openpose:
+  prototxt: weights/openpose/pose_deploy_linevec.prototxt
+  caffemodel: weights/openpose/pose_iter_440000.caffemodel
+  input_size: 368
+  heatmap_threshold: 0.1
+  max_frames: 20                     # OpenPose no OpenCV DNN roda em CPU (lento)
+
+# --------------------------------------------------------------------------
+# Cenário de fisioterapia
+# --------------------------------------------------------------------------
+physio:
+  exercise: agachamento              # só rótulo; a geometria vem de primary_angle
+  process_fps: 15                    # quadros por segundo efetivamente analisados
+  smoothing_window_s: 0.3            # média móvel dos ângulos
+  max_gap_s: 0.5                     # lacunas de keypoints até isso são interpoladas
+
+  primary_angle:                     # ângulo que define a amplitude da repetição
+    joint: knee                      # knee | hip | elbow | shoulder
+    side: auto                       # left | right | auto (lado com keypoints mais confiáveis)
+    direction: decrease              # decrease: flexão reduz o ângulo (agachamento)
+                                     # increase: movimento aumenta o ângulo (ex.: abdução de ombro)
+
+  repetition:
+    # Repouso estimado como o percentil abaixo do ângulo (decrease) ou acima (increase).
+    rest_percentile: 90
+    start_delta: 15                  # graus de afastamento do repouso para iniciar a repetição
+    min_depth: 25                    # amplitude mínima para contar como repetição (filtra ruído)
+    min_duration_s: 0.8
+
+  rules:
+    amplitude_incompleta:
+      # Pico esperado do ângulo principal em cada repetição (graus).
+      # decrease: o pico (mínimo) deve chegar a <= expected[1]
+      # increase: o pico (máximo) deve chegar a >= expected[0]
+      expected: [70, 100]
+      score_full_deviation: 60       # desvio (graus) em que o score chega a 1
+      severity:                      # desvio mínimo (graus) -> severidade
+        - {min_deviation: 0, severity: low}
+        - {min_deviation: 15, severity: medium}
+        - {min_deviation: 35, severity: high}
+
+    postura_fora_padrao:
+      metric: trunk_angle            # inclinação do tronco em relação à vertical (graus)
+      expected: [0, 45]
+      min_duration_s: 0.5            # tempo mínimo fora da faixa dentro da repetição
+      score_full_deviation: 40
+      severity:
+        - {min_deviation: 0, severity: low}
+        - {min_deviation: 10, severity: medium}
+        - {min_deviation: 25, severity: high}
+
+# --------------------------------------------------------------------------
+# Cenário do leito (gera só movement.parquet; Findings de saída do leito e
+# imobilidade são do I3)
+# --------------------------------------------------------------------------
+bed:
+  sample_hz: 5                       # frequência do movement.parquet
+  bed_class: bed                     # classe COCO do YOLOv8
+  person_class: person
+  bed_detection_samples: 25          # quadros espalhados pelo vídeo para estimar a caixa do leito
+  bed_box_override: null             # [x1, y1, x2, y2] normalizados 0-1, se o leito não for detectado
+  edge_margin: 0.12                  # largura da zona de borda, fração do lado do leito
+  in_bed_min_overlap: 0.5            # fração da caixa da pessoa dentro do leito para in_bed = true
+  velocity_smoothing_s: 0.6
+  missing_hold_s: 1.0                # pessoa some por até isso (oclusão): mantém o último estado
+  max_frames_saved: 8                # quadros anotados salvos (amostras + transições do in_bed)
+
+# --------------------------------------------------------------------------
+# Saídas
+# --------------------------------------------------------------------------
+output:
+  clip_padding_s: 1.0                # segundos antes/depois do desvio no clipe
+  annotated_video: true              # salva o vídeo inteiro anotado (para o dashboard)
+  sample_frames: 4                   # quadros anotados de amostra no relatório
+  jpeg_quality: 88
+
+metrics:
+  iou_threshold: 0.3                 # IoU temporal mínima para casar evento previsto com rótulo
