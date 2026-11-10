@@ -121,7 +121,7 @@ Legenda: ✅ feito · 🟡 provisório ou parcial · ⬜ pendente
 | Mock: `movement.parquet` e `findings.jsonl` com 2 eventos | ✅ (substituído pelas saídas reais do P001) |
 | Vídeos de datasets públicos no lugar de gravações: download reproduzível | ✅ (`data/download_rehab24.py`, `data/download_charades.py`) |
 | Pose com YOLOv8-pose, ângulos e amplitude por repetição | ✅ (REHAB24-6: 122 de 128 repetições de agachamento encontradas) |
-| Regras dos 2 eventos com limiares em `config/video.yaml` | ✅ código; 🟡 sem calibração: F1 de 0,39 na sinalização de repetições incorretas no REHAB24-6 (seção 7.11) |
+| Regras dos 2 eventos com limiares em `config/video.yaml` | ✅ limiares de perfil calibrados no REHAB24-6 (seção 7.6): F1 de perfil de 0,22 para 0,55 |
 | OpenPose via OpenCV DNN com frames anotados (obrigatório) | ✅ (20 quadros no vídeo de fisioterapia do P001) |
 | YOLOv8 pessoa + leito, zona da borda, `movement.parquet` com `in_bed` | ✅ (Charades SSP8C: leito detectado; saída do leito aos 18 s) |
 | `demo_offset` nos Findings e no parquet; P001 apontando para os vídeos reais | ✅ |
@@ -198,7 +198,7 @@ data/
   notes/              notas de evolução sintéticas (Integrante 2) - vazio
   video/              vídeos dos datasets (fora do Git)
 scripts/make_mocks.py gera os mocks fictícios do M1
-notebooks/rehab24/    avaliação do vídeo no REHAB24-6 (config da abdução, script de avaliação)
+notebooks/rehab24/    avaliação e calibração do vídeo no REHAB24-6 (config da abdução, scripts)
 notebooks/charades/   conferência da série do leito com a anotação do Charades
 notebooks/comparacao/ comparação OpenPose × YOLOv8-pose com o gabarito do REHAB24-6
 docs/                 enunciado oficial (PDF); a documentação técnica fica neste README
@@ -285,12 +285,12 @@ Toda saída de módulo que vira alerta é um `findings.jsonl` (um Finding por
 linha). Exemplo real do vídeo de fisioterapia do P001 (a pose vem do YOLOv8n-pose):
 
 ```json
-{"finding_id": "a66d65dc-7cdf-4f1d-b319-e71ce54ee4f6", "patient_id": "P001", "source": "video",
+{"finding_id": "71594ce1-2a63-4344-872e-59e6be9604c6", "patient_id": "P001", "source": "video",
  "type": "amplitude_incompleta",
  "timestamp_start": "2026-11-03T10:01:02.333333-03:00", "timestamp_end": "2026-11-03T10:01:04.133333-03:00",
- "score": 0.544, "severity": "medium",
- "description": "Amplitude incompleta na repetição 12 (agachamento): ângulo do joelho chegou a 133°, esperado até 100°",
- "evidence": {"metric": "knee_angle", "value": 132.6, "expected": [70.0, 100.0], "deviation": 32.6,
+ "score": 0.294, "severity": "medium",
+ "description": "Amplitude incompleta na repetição 12 (agachamento): ângulo do joelho chegou a 133°, esperado até 115°",
+ "evidence": {"metric": "knee_angle", "value": 132.6, "expected": [70.0, 115.0], "deviation": 17.6,
               "rep": 12, "side": "left", "video": "data/video/rehab24-6/PM_105-Camera18-30fps-transposed.mp4",
               "media_start_s": 62.333, "media_end_s": 64.133},
  "model": {"name": "yolov8n-pose", "version": "8.4.208"},
@@ -382,7 +382,7 @@ Mapeia os passos do cenário P001 do plano.
 
 | Horário | Origem | Evento | Severidade (score) | Fonte hoje | Passo do cenário |
 |---|---|---|---|---|---|
-| 10:00:26–10:01:48 | `video` | 11 `amplitude_incompleta` e 4 `postura_fora_padrao` (seção 7.12) | low a high | **real** (REHAB24-6 PM_105) | 1 |
+| 10:00:26–10:01:48 | `video` | 9 `amplitude_incompleta` e 7 `postura_fora_padrao` (seção 7.12) | low a high | **real** (REHAB24-6 PM_105) | 1 |
 | 10:10:18–10:10:24 | `movement` | `saida_do_leito` | medium (0,70) | mock do Integrante 3, alinhado à série real do leito | 2 |
 | 10:20:00 | `prescription` | `dose_duplicada` (dipirona 1000 mg, 2×) | medium (0,70) | mock | 5 |
 | 10:30:30–10:31:30 | `audio` | `indicador_vocal_alterado` (z-scores em `evidence.zscores`) | medium (0,68) | mock | 3 |
@@ -461,8 +461,8 @@ Fusão (`app/fusion.py`, regras em `config/fusion.yaml`):
 
 Com o vídeo real e os mocks dos Integrantes 2 e 3, o P001 tem hoje:
 - 1 alerta crítico, às 10:48;
-- 3 alertas urgentes, das repetições com severidade alta;
-- 15 alertas de atenção.
+- 2 alertas urgentes, das repetições com severidade alta;
+- 17 alertas de atenção.
 
 Formato provisório de cada linha do `alerts.jsonl`:
 
@@ -563,10 +563,9 @@ o movimento no plano em que ele acontece:
 - **Anotação do SSP8C:** deitado na cama de 0 a 11,5 s; levantando-se de 13,7 a 19,1 s.
 - **Descartados:** 5 candidatos foram inspecionados e 3 processados. No MLK57 a pessoa ficou pouco visível no escuro (27% das amostras); no 580G0 o YOLOv8 não detectou o leito.
 
-**Sem calibração.** Os limiares do `config/video.yaml` **não foram ajustados**
-a esses vídeos. Os resultados da seção 7.11 mostram o comportamento do método
-com pessoas e vistas que ele não conhece. A abdução (PM_001) usa uma
-configuração própria do exercício, em `notebooks/rehab24/abducao.yaml`:
+**Calibração.**
+- **Agachamento:** os limiares do `config/video.yaml` foram calibrados com os 6 vídeos de agachamento, só na vista de perfil (seção 7.6).
+- **Abdução (PM_001):** não foi calibrada. Usa uma configuração própria do exercício, em `notebooks/rehab24/abducao.yaml`:
 - ângulo do ombro, braço direito, ângulo que aumenta;
 - braço ao menos na horizontal (80°);
 - tronco ereto (0–15°).
@@ -598,6 +597,7 @@ $v = "data/video/rehab24-6"
 python -m modules.video.run --patient P001 --scenario physio --outputs outputs/rehab24-6 --input "$v/PM_022-Camera18-30fps-transposed.mp4" "$v/PM_043-Camera18-30fps-transposed.mp4" "$v/PM_105-Camera18-30fps-transposed.mp4" "$v/PM_113-Camera18-30fps-transposed.mp4" "$v/PM_118-Camera18-30fps-transposed.mp4" "$v/PM_126-Camera18-30fps-transposed.mp4"
 python -m modules.video.run --patient P001 --scenario physio --outputs outputs/rehab24-6 --config notebooks/rehab24/abducao.yaml --out outputs/rehab24-6/video/P001/findings_abducao.jsonl --input "$v/PM_001-Camera17-30fps.mp4"
 python -m notebooks.rehab24.avaliacao   # tabelas de repetições e de sinalização
+python -m notebooks.rehab24.calibracao  # calibração dos limiares de perfil (seção 7.6)
 python -m notebooks.charades.leito      # série do leito do P001 × anotação do Charades
 
 # comparação OpenPose × YOLOv8-pose (seção 7.7), ~4 min em CPU
@@ -704,13 +704,50 @@ abdução de ombro. O mesmo código serve a outros exercícios trocando só o
 
 | Evento (`type`) | Quando é sinalizado | Faixa esperada (inicial) | Score | Severidade por desvio |
 |---|---|---|---|---|
-| `amplitude_incompleta` | O pico do ângulo principal na repetição não chega à faixa esperada | joelho até 100° (faixa 70–100°) | desvio ÷ 60°, limitado a 1 | < 15°: low · 15–35°: medium · ≥ 35°: high |
-| `postura_fora_padrao` | A inclinação do tronco fica fora da faixa esperada por pelo menos 0,5 s seguidos dentro da repetição | 0–45° | desvio ÷ 40°, limitado a 1 | < 10°: low · 10–25°: medium · ≥ 25°: high |
+| `amplitude_incompleta` | O pico do ângulo principal na repetição não chega à faixa esperada | joelho até 115° (faixa 70–115°) | desvio ÷ 60°, limitado a 1 | < 15°: low · 15–35°: medium · ≥ 35°: high |
+| `postura_fora_padrao` | A inclinação do tronco fica fora da faixa esperada por pelo menos 0,5 s seguidos dentro da repetição | 0–35° | desvio ÷ 40°, limitado a 1 | < 10°: low · 10–25°: medium · ≥ 25°: high |
 
 - **Desvio:** a distância, em graus, entre o valor medido e o limite da faixa. O score fica normalizado em 0–1, como pede o contrato.
 - **Unidade de avaliação:** as duas regras são avaliadas por repetição, e cada desvio vira um Finding com o número da repetição.
 - **Postura fora das repetições:** não é avaliada.
-- **Limiares:** são **iniciais** e não foram calibrados (seção 7.11).
+- **Limiares:** calibrados para agachamento de perfil no REHAB24-6 (abaixo). Antes da calibração eram 100° e 45°.
+
+#### Calibração dos limiares de perfil
+
+Script: `notebooks/rehab24/calibracao.py`. Saídas em `outputs/calibracao/`.
+
+**Para que serve.** Os limiares iniciais (joelho até 100°, tronco até 45°)
+tinham sido escolhidos sem dados. No REHAB24-6, agachamentos corretos de
+perfil chegavam a 111° e eram sinalizados. Calibrar é escolher os limites a
+partir de vídeos anotados, de forma reproduzível, para que o relatório possa
+justificar cada um.
+
+**Método**
+- **Vista:** só repetições de perfil (61 repetições, 20 incorretas), que é a vista da demo.
+- **Medidas por repetição anotada:** o pico do joelho e a maior inclinação do tronco mantida por 0,5 s.
+- **Separação por pessoa:** calibração em PM_022, PM_043 e PM_126; teste em PM_105, PM_113 e PM_118, que a busca não vê.
+- **Busca em grade:** maximiza o F1 de "repetição incorreta".
+- **Estabilidade:** a busca foi repetida 6 vezes, deixando uma pessoa de fora a cada vez.
+
+**O que a busca mostrou**
+- **Amplitude:** em todas as rodadas, a busca prefere **desligar** a regra. Nos agachamentos de perfil do REHAB24-6, as repetições incorretas descem **mais** que as corretas (pico de 60–105° contra 72–111°), então não há exemplos de amplitude incompleta para calibrar.
+- **Postura:** o limite escolhido variou entre 20° e 35° conforme a pessoa deixada de fora (35° em 3 das 6 rodadas). Com 10 repetições incorretas por conjunto, o ótimo é instável.
+
+**Limiares adotados**
+- **Joelho até 115°:** logo acima do maior pico de um agachamento **correto** de perfil nos 6 vídeos (111°). A regra, exigida pelo plano, continua sinalizando amplitude claramente incompleta sem gerar falsos positivos de perfil.
+- **Tronco até 35°:** o valor mais escolhido e o mais conservador entre os escolhidos.
+
+| Repetições de perfil | Limiares | VP | FP | FN | VN | Precisão | Recall | F1 |
+|---|---|---|---|---|---|---|---|---|
+| teste (3 pessoas) | antes (100°, 45°) | 3 | 9 | 7 | 12 | 0,25 | 0,30 | 0,27 |
+| teste (3 pessoas) | calibrados (115°, 35°) | 9 | 7 | 1 | 14 | 0,56 | 0,90 | 0,69 |
+| todas (6 pessoas) | antes (100°, 45°) | 4 | 12 | 16 | 29 | 0,25 | 0,20 | 0,22 |
+| todas (6 pessoas) | calibrados (115°, 35°) | 12 | 11 | 8 | 30 | 0,52 | 0,60 | 0,56 |
+
+**Ressalvas**
+- **Números otimistas:** os valores adotados foram decididos olhando os 6 vídeos, pela validação deixando uma pessoa de fora.
+- **Origem do ganho:** vem da regra de postura. A de amplitude não tem, nestes dados, erros do tipo que ela procura.
+- **Vista:** os limiares valem para perfil. Em meio-perfil a sinalização piorou (seção 7.11).
 
 O exemplo de Finding da seção 6.2 é real: repetição 12 do PM_105.
 
@@ -894,14 +931,14 @@ de evento**, para quando houver rótulos com tipo em `data/labels/` (modelo em
 
 **Contagem de repetições e pose**
 
-| Vídeo | Repetições detectadas / anotadas / casadas | Quadros com pose | Desvios sinalizados |
+| Vídeo | Repetições detectadas / anotadas / casadas | Quadros com pose | Desvios sinalizados (limiares calibrados) |
 |---|---|---|---|
-| PM_022 | 22 / 22 / 22 | 100% | 10 amplitude incompleta |
-| PM_043 | 20 / 20 / 20 | 100% | 10 amplitude incompleta |
-| PM_105 | 21 / 21 / 21 | 100% | 11 amplitude incompleta, 4 postura fora da faixa |
-| PM_113 | 22 / 22 / 22 | 100% | 12 amplitude incompleta |
-| PM_118 | 22 / 23 / 22 | 100% | 17 amplitude incompleta |
-| PM_126 | 16 / 20 / 15 | 100% | 12 amplitude incompleta |
+| PM_022 | 22 / 22 / 22 | 100% | 8 amplitude incompleta, 5 postura fora da faixa |
+| PM_043 | 20 / 20 / 20 | 100% | 5 amplitude incompleta |
+| PM_105 | 21 / 21 / 21 | 100% | 9 amplitude incompleta, 7 postura fora da faixa |
+| PM_113 | 22 / 22 / 22 | 100% | 1 amplitude incompleta, 9 postura fora da faixa |
+| PM_118 | 22 / 23 / 22 | 100% | 9 amplitude incompleta, 2 postura fora da faixa |
+| PM_126 | 16 / 20 / 15 | 100% | 9 amplitude incompleta, 6 postura fora da faixa |
 | PM_001 (abdução) | 11 / 10 / 10 | 100% | nenhum |
 
 - **Agachamento:** 122 das 128 repetições anotadas foram encontradas. Quase toda a perda está no PM_126: nas 5 primeiras repetições a pessoa não volta à posição de repouso entre uma descida e outra, e as 5 viraram uma só (seção 7.13).
@@ -909,31 +946,41 @@ de evento**, para quando houver rótulos com tipo em `data/labels/` (modelo em
 
 **Sinalização de repetições incorretas**
 
-| Exercício | Vista | VP | FP | FN | VN | Precisão | Recall | F1 |
-|---|---|---|---|---|---|---|---|---|
-| agachamento | perfil | 4 | 12 | 16 | 29 | 0,25 | 0,20 | 0,22 |
-| agachamento | meio-perfil | 19 | 40 | 3 | 5 | 0,32 | 0,86 | 0,47 |
-| agachamento | todas | 23 | 52 | 19 | 34 | 0,31 | 0,55 | 0,39 |
-| abdução de ombro | frente | 0 | 0 | 5 | 5 | — | 0,00 | — |
+Medida pelos eventos que o módulo emitiu de fato, antes e depois da calibração:
+
+| Exercício | Vista | Limiares | VP | FP | FN | VN | Precisão | Recall | F1 |
+|---|---|---|---|---|---|---|---|---|---|
+| agachamento | perfil | antes (100°, 45°) | 4 | 12 | 16 | 29 | 0,25 | 0,20 | 0,22 |
+| agachamento | perfil | **calibrados (115°, 35°)** | 12 | 12 | 8 | 29 | 0,50 | 0,60 | **0,55** |
+| agachamento | meio-perfil | antes | 19 | 40 | 3 | 5 | 0,32 | 0,86 | 0,47 |
+| agachamento | meio-perfil | calibrados | 12 | 31 | 10 | 14 | 0,28 | 0,55 | 0,37 |
+| agachamento | todas | antes | 23 | 52 | 19 | 34 | 0,31 | 0,55 | 0,39 |
+| agachamento | todas | calibrados | 24 | 43 | 18 | 43 | 0,36 | 0,57 | 0,44 |
+| abdução de ombro | frente | configuração própria | 0 | 0 | 5 | 5 | — | 0,00 | — |
 
 **O que os resultados mostram.** A contagem de repetições é confiável quando a
 pessoa volta ao repouso entre as repetições. A sinalização de execução
-incorreta com limiares absolutos não é. Há três causas:
+incorreta com limiares absolutos é limitada, mesmo depois de calibrada. A
+análise abaixo usa os picos medidos, que não dependem dos limiares. Há três causas:
 
 1. **Perspectiva.** Nas repetições **corretas**, o pico do joelho ficou entre
-   **72° e 111° de perfil** e entre **87° e 144° em meio-perfil**. Com o
-   limite fixo de 100°, quase todos os agachamentos corretos em meio-perfil
-   foram sinalizados como amplitude incompleta (40 falsos positivos).
+   **72° e 111° de perfil** e entre **87° e 144° em meio-perfil**. Nenhum
+   limite fixo serve às duas vistas: o limite de 115°, calibrado para perfil,
+   ainda sinaliza agachamentos corretos em meio-perfil, e por isso o F1 nessa
+   vista caiu de 0,47 para 0,37.
 2. **Variação entre pessoas.** Mesmo de perfil, agachamentos considerados
    corretos pelo fisioterapeuta chegaram a 101–106° (PM_113 e PM_118) e a 111°
-   (PM_043), acima do limite de 100°.
+   (PM_043), acima do limite inicial de 100°. Foi por isso que a calibração
+   levou o limite para 115°.
 3. **Erros fora do que as regras cobrem.**
    - **Agachamento:** no PM_043, no PM_105 e no PM_113, as repetições incorretas de perfil foram **mais profundas** que as corretas. É flexão excessiva, que a regra de amplitude incompleta não procura.
    - **Abdução:** as repetições incorretas subiram um pouco menos (116°–123°) que as corretas (126°–132°). Isso fica muito acima do limite mínimo de 80°.
 
-A regra de postura acertou o que se propõe: as 4 sinalizações no PM_105 são
-repetições com o tronco inclinado à frente (48°–60°), todas anotadas como
-incorretas.
+Depois da calibração, a regra de postura é a que mais acerta. No PM_105, as 7
+sinalizações de postura (tronco de 45° a 60°) são todas em repetições anotadas
+como incorretas. Ela também gera falsos positivos, por exemplo 5 no PM_022, em
+repetições corretas de perfil feitas com o tronco a 40°–45°: essa pessoa
+inclina mais o tronco que as outras, mesmo executando corretamente.
 
 **Leito.** Ver o resultado do SSP8C na seção 7.8: a saída estável aos 18,0 s
 fica dentro do intervalo anotado de "levantando-se" (13,7–19,1 s).
@@ -941,20 +988,21 @@ fica dentro do intervalo anotado de "levantando-se" (13,7–19,1 s).
 ### 7.12 Uso na demonstração do P001
 
 O passo 1 do cenário do P001 pede uma "amplitude incompleta → Finding video de
-severidade média". O vídeo de fisioterapia do P001 (PM_105) gera 15 Findings
+severidade média". O vídeo de fisioterapia do P001 (PM_105) gera 16 Findings
 entre 10:00:26 e 10:01:48. Comparados com as anotações do REHAB24-6:
 
 | Repetições | Anotação do dataset | O que o módulo sinalizou |
 |---|---|---|
-| 6–10 (meio-perfil) | corretas | amplitude incompleta (medium): **falsos positivos** causados pela perspectiva |
-| 11–16 (meio-perfil) | incorretas | amplitude incompleta (2 low, 1 medium, 3 high) |
-| 15, 17, 18, 21 | incorretas | postura fora da faixa (tronco 48°–60°) |
-| 1–5, 19, 20 (perfil) | 1–5 corretas; 19 e 20 incorretas | nada |
+| 1–5 (perfil) | corretas | nada |
+| 6–10 (meio-perfil) | corretas | amplitude incompleta de severidade **baixa** (score 0,05–0,11): **falsos positivos** causados pela perspectiva |
+| 11–16 (meio-perfil) | incorretas | amplitude incompleta nas 11, 12, 13 e 15 (1 high, 3 medium); postura nas 15 e 16 |
+| 17–21 (perfil) | incorretas | postura fora da faixa em todas (tronco 45°–60°) |
+| 14 | incorreta | nada |
 
 **Para o vídeo da entrega:**
 - **Amplitude incompleta:** mostrar a **repetição 12** (10:01:02, severidade média, joelho a 133°, anotada como incorreta), que é o Finding de exemplo da seção 6.2.
-- **Postura fora da faixa:** a **repetição 18** (10:01:37, tronco a 60°).
-- **Falsos positivos:** dizer que existem e por quê. O relatório HTML lista todos.
+- **Postura fora da faixa:** a **repetição 18** (10:01:37, tronco a 60°, severidade alta).
+- **Falsos positivos:** dizer que existem e por quê. O relatório HTML lista todos. Depois da calibração eles têm severidade baixa.
 
 ### 7.13 Limitações
 
@@ -964,7 +1012,7 @@ entre 10:00:26 e 10:01:48. Comparados com as anotações do REHAB24-6:
 - **Tipos de erro cobertos:** só amplitude incompleta e tronco fora da faixa. Flexão excessiva, o erro mais comum no agachamento do REHAB24-6, não é sinalizada.
 - **Pessoa analisada:** é a maior pessoa detectada.
 - **OpenPose de pessoa única:** pode misturar pessoas próximas, mesmo com o recorte. Roda em CPU, então cobre só uma amostra de quadros.
-- **Limiares:** iniciais e definidos pela equipe. Não são critérios clínicos validados.
+- **Limiares:** calibrados para perfil num dataset público pequeno (6 pessoas). Não são critérios clínicos validados. A regra de amplitude não pôde ser calibrada por falta de erros desse tipo nos dados.
 - **Postura:** avaliada só pela inclinação do tronco e só dentro das repetições. Outros desvios (por exemplo, joelho valgo) não são cobertos.
 - **Leito:**
   - a detecção da classe COCO `bed` vem de camas comuns e pode falhar com leitos hospitalares ou cobertos (há a caixa manual como alternativa);
@@ -975,11 +1023,10 @@ entre 10:00:26 e 10:01:48. Comparados com as anotações do REHAB24-6:
 
 ### 7.14 Próximos passos propostos
 
-Em ordem de prioridade. Os itens 2 e 3 precisam de decisão do grupo.
+Os dois precisam de decisão do grupo.
 
-1. **Calibrar os limiares de perfil** com os vídeos do REHAB24-6, separando vídeos para calibrar e para avaliar, e documentar a escolha.
-2. **Amplitude relativa à própria pessoa:** comparar cada repetição com a linha de base das primeiras repetições do mesmo vídeo, como o indicador vocal do Integrante 2 compara cada voz com ela mesma. Reduz o efeito da perspectiva e da variação entre pessoas, mas muda a semântica da regra. Não era exigência do enunciado nem do plano.
-3. **Flexão excessiva como terceiro tipo de evento.** Cobriria o erro mais comum do agachamento no REHAB24-6. Exige acrescentar um `type` à lista acordada no contrato.
+1. **Amplitude relativa à própria pessoa:** comparar cada repetição com a linha de base das primeiras repetições do mesmo vídeo, como o indicador vocal do Integrante 2 compara cada voz com ela mesma. Reduz o efeito da perspectiva e da variação entre pessoas, mas muda a semântica da regra. Não era exigência do enunciado nem do plano.
+2. **Flexão excessiva como terceiro tipo de evento.** Cobriria o erro mais comum do agachamento no REHAB24-6. Exige acrescentar um `type` à lista acordada no contrato.
 
 ## 8. Análise de áudio e texto clínico (Integrante 2)
 
@@ -1135,7 +1182,7 @@ desempenho esperado em ambiente hospitalar real.
 | Módulo | Métrica | Resultado | Detalhes |
 |---|---|---|---|
 | Vídeo | Contagem de repetições de agachamento (REHAB24-6) | 122 de 128 | seção 7.11 |
-| Vídeo | Sinalização de repetições incorretas, sem calibração (REHAB24-6) | F1 0,39 (precisão 0,31, recall 0,55) | seção 7.11 |
+| Vídeo | Sinalização de repetições incorretas no agachamento, limiares calibrados (REHAB24-6) | F1 de perfil 0,55 (antes 0,22); em todas as vistas 0,44 (antes 0,39) | seções 7.6 e 7.11 |
 | Vídeo | Saída do leito (Charades SSP8C) | 18,0 s, dentro do intervalo anotado de 13,7–19,1 s | seção 7.8 |
 | Vídeo | Velocidade do YOLOv8n-pose em CPU | 68 a 78 FPS | seção 7.5 |
 | Vídeo | OpenPose × YOLOv8-pose contra o gabarito 2D (erro médio) | 46,0 px × 39,7 px; 0,77 × 59,3 FPS | seção 7.7 |
