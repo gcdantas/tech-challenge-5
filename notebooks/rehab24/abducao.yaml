@@ -1,0 +1,50 @@
+# Variação do config/video.yaml usada só no teste com a abdução de braço do
+# REHAB24-6 (Ex1, braço direito, câmera de frente). Todos os demais parâmetros
+# são iguais aos do config/video.yaml.
+
+models:
+  pose: weights/yolov8n-pose.pt
+  detect: weights/yolov8n.pt
+  device: null
+  imgsz: 640
+  conf: 0.25
+  min_keypoint_conf: 0.3
+
+openpose:
+  prototxt: weights/openpose/pose_deploy_linevec.prototxt
+  caffemodel: weights/openpose/pose_iter_440000.caffemodel
+  input_size: 368
+  heatmap_threshold: 0.1
+  max_frames: 20
+
+physio:
+  exercise: abdução de ombro
+  process_fps: 15
+  smoothing_window_s: 0.3
+  max_gap_s: 0.5
+  primary_angle:
+    joint: shoulder           # quadril – ombro – cotovelo
+    side: right
+    direction: increase       # o braço sobe: o ângulo aumenta
+  repetition:
+    rest_percentile: 90
+    start_delta: 15
+    min_depth: 25
+    min_duration_s: 0.8
+  rules:
+    amplitude_incompleta:
+      expected: [80, 180]     # o braço deve subir ao menos até a horizontal
+      score_full_deviation: 60
+      severity:
+        - {min_deviation: 0, severity: low}
+        - {min_deviation: 15, severity: medium}
+        - {min_deviation: 35, severity: high}
+    postura_fora_padrao:
+      metric: trunk_angle
+      expected: [0, 15]       # tronco ereto, sem compensar inclinando
+      min_duration_s: 0.5
+      score_full_deviation: 40
+      severity:
+        - {min_deviation: 0, severity: low}
+        - {min_deviation: 10, severity: medium}
+        - {min_deviation: 25, severity: high}
