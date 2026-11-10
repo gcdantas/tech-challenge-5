@@ -87,7 +87,6 @@ class BedCfg(_Strict):
     sample_hz: float = 5
     bed_class: str = "bed"
     person_class: str = "person"
-    bed_detection_samples: int = 25
     bed_box_override: tuple[float, float, float, float] | None = None
     edge_margin: float = 0.12
     in_bed_min_overlap: float = 0.5

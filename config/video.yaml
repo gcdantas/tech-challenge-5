@@ -68,7 +68,6 @@ bed:
   sample_hz: 5                       # frequência do movement.parquet
   bed_class: bed                     # classe COCO do YOLOv8
   person_class: person
-  bed_detection_samples: 25          # quadros espalhados pelo vídeo para estimar a caixa do leito
   bed_box_override: null             # [x1, y1, x2, y2] normalizados 0-1, se o leito não for detectado
   edge_margin: 0.12                  # largura da zona de borda, fração do lado do leito
   in_bed_min_overlap: 0.5            # fração da caixa da pessoa dentro do leito para in_bed = true
