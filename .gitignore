@@ -245,6 +245,5 @@ weights/
 # Contingência do e-mail de alerta (I4)
 *.eml
 
-# Documentos de referência do grupo (não versionados por decisão do grupo)
-docs/IADT - Fase 4 - Tech challenge.pdf
+# Plano interno do grupo (não versionado). O enunciado oficial fica versionado em docs/.
 docs/Tech Challenge Fase 4*Divis*.pdf
