@@ -130,7 +130,7 @@ Legenda: ✅ feito · 🟡 provisório ou parcial · ⬜ pendente
 | Rótulos de saída do leito para o Integrante 3 | ✅ `data/labels/SSP8C.yaml`, a partir da anotação do Charades → `bed_exit_labels.json` |
 | Documentação técnica (seção 7) | ✅ |
 | Decidir com o grupo: amplitude relativa à própria pessoa e evento de flexão excessiva (seção 7.14) | ⬜ |
-| Desejável (Integrante 1): comparação OpenPose × YOLOv8-pose | ⬜ (keypoints já salvos para ela) |
+| Desejável (Integrante 1): comparação OpenPose × YOLOv8-pose | ✅ com o gabarito da captura de movimento do REHAB24-6 (seção 7.7) |
 
 ### Integrante 2: áudio e texto clínico
 
@@ -200,6 +200,7 @@ data/
 scripts/make_mocks.py gera os mocks fictícios do M1
 notebooks/rehab24/    avaliação do vídeo no REHAB24-6 (config da abdução, script de avaliação)
 notebooks/charades/   conferência da série do leito com a anotação do Charades
+notebooks/comparacao/ comparação OpenPose × YOLOv8-pose com o gabarito do REHAB24-6
 docs/                 enunciado oficial (PDF); a documentação técnica fica neste README
 tests/                pytest
 outputs/              saídas geradas (fora do Git)
@@ -598,6 +599,10 @@ python -m modules.video.run --patient P001 --scenario physio --outputs outputs/r
 python -m modules.video.run --patient P001 --scenario physio --outputs outputs/rehab24-6 --config notebooks/rehab24/abducao.yaml --out outputs/rehab24-6/video/P001/findings_abducao.jsonl --input "$v/PM_001-Camera17-30fps.mp4"
 python -m notebooks.rehab24.avaliacao   # tabelas de repetições e de sinalização
 python -m notebooks.charades.leito      # série do leito do P001 × anotação do Charades
+
+# comparação OpenPose × YOLOv8-pose (seção 7.7), ~4 min em CPU
+python -m data.download_rehab24 --gabarito   # articulações 2D/3D da captura de movimento (~16 MB lidos)
+python -m notebooks.comparacao.openpose_yolo
 ```
 
 ### 7.4 Visão geral do pipeline
@@ -642,7 +647,7 @@ específico do projeto são as regras sobre a pose (seção 7.6).
 **Modelo usado nas regras: YOLOv8-pose.** Os motivos:
 - roda no mesmo framework do detector de objetos;
 - devolve keypoints já associados a cada pessoa;
-- é rápido o bastante para analisar o vídeo inteiro.
+- na comparação com gabarito da seção 7.7, foi 77 vezes mais rápido em CPU, mais estável e com menor erro médio em pixels que o OpenPose.
 
 O OpenPose roda numa amostra de quadros, como evidência do requisito.
 
@@ -734,16 +739,49 @@ Saídas:
 - `runs/openpose_<video>.json`: keypoints, tempos e estatísticas;
 - uma seção no `report.html`.
 
-**Comparação OpenPose × YOLOv8-pose (desejável, Integrante 1).** O plano
-define quatro critérios:
-- FPS médio;
-- proporção de quadros com keypoints ausentes;
-- variação quadro a quadro de um ponto estático;
-- número de falhas completas de pose.
+#### Comparação OpenPose × YOLOv8-pose (desejável, Integrante 1)
 
-Os keypoints do OpenPose já são salvos e convertidos para COCO-17
-(`OpenPoseResult.to_coco17()`) para casar com o YOLOv8-pose nos mesmos quadros.
-A comparação ainda não foi feita.
+Script: `notebooks/comparacao/openpose_yolo.py`. Saídas em
+`outputs/comparacao/`: tabela, JSON e um quadro por vídeo com os dois
+esqueletos e o gabarito.
+
+**Como foi feita**
+- **Vídeos e quadros:** os dois modelos rodam **nos mesmos quadros** de 3 agachamentos do REHAB24-6 (PM_105, PM_113 e PM_118, câmera 18), 179 quadros no total. São 30 quadros espalhados pelas repetições de cada vídeo, mais 30 quadros **seguidos** do trecho em que o gabarito 3D mostra a pessoa mais parada (0,2 a 0,7 mm de movimento por quadro).
+- **Condições:** tudo em CPU. O OpenPose recebe o recorte da pessoa dado pelo YOLOv8, como no módulo, e o tempo dele conta só a inferência. Cada modelo roda uma vez antes da medição.
+- **Os 4 critérios do plano:** FPS médio, keypoints ausentes, variação quadro a quadro de um ponto estático (quadris, joelhos e tornozelos no trecho parado) e falhas completas.
+- **Gabarito da captura de movimento do dataset:**
+  - **Erro em pixels** contra as articulações 2D projetadas na câmera. A correspondência entre os 17 pontos dos modelos e as 26 articulações do dataset foi conferida no PM_105.
+  - **Erro do ângulo do joelho** contra o ângulo **real em 3D**.
+
+| Critério | OpenPose (OpenCV DNN, CPU) | YOLOv8n-pose (CPU) |
+|---|---|---|
+| FPS médio (só inferência) | 0,77 | 59,3 |
+| Keypoints ausentes (17 por quadro) | 13,0% | 8,2% |
+| Variação de ponto estático (px por quadro; o gabarito varia 0,13) | 3,5 | 1,5 |
+| Falhas completas de pose | 0 | 0 |
+| Erro médio contra o gabarito 2D (px) | 46,0 | 39,7 |
+| Erro médio contra o gabarito 2D (% do comprimento do tronco) | 16,5% | 14,2% |
+| Erro do ângulo do joelho × 3D real, de perfil | 8,8° | 11,8° |
+| Erro do ângulo do joelho × 3D real, em meio-perfil | 18,0° | 16,9° |
+
+**O que a comparação mostra**
+- **Velocidade:** o YOLOv8-pose é **77 vezes mais rápido** em CPU. É o que permite analisar o vídeo inteiro. O OpenPose, a 0,77 FPS, levaria cerca de 32 minutos para um vídeo de 100 s analisado a 15 quadros por segundo, como o módulo faz.
+- **Estabilidade e cobertura:** o YOLOv8-pose é **mais estável** (2,4 vezes menos variação num ponto parado), deixa menos pontos ausentes e erra menos em pixels na média. Nenhum dos dois falhou por completo em nenhum quadro.
+- **Ângulo do joelho de perfil:** foi o único critério em que o OpenPose se saiu melhor (8,8° contra 11,8°), e isso se repetiu nos 3 vídeos, com 24 a 32 medidas por vídeo. Uma hipótese, não testada: o ponto do quadril de cada modelo e o do gabarito são definidos de formas diferentes, e o erro do quadril entra no ângulo.
+- **Meio-perfil:** os dois erram 17° a 18°. O próprio gabarito 2D, comparado com o 3D, já erra 13° nessa vista (contra 2,1° de perfil). A maior parte desse erro vem da **projeção em 2D**, não do modelo, o que confirma com medida a limitação de perspectiva da seção 7.11.
+
+**Justificativa do modelo da demo.** O YOLOv8-pose é usado nas regras. Os
+motivos:
+- é o único dos dois que analisa o vídeo inteiro em CPU;
+- é mais estável e erra menos em pixels;
+- de perfil, a diferença de 3° no ângulo do joelho a favor do OpenPose é pequena perto do efeito da perspectiva e da variação entre pessoas (seção 7.11).
+
+O OpenPose continua no projeto como evidência do requisito do enunciado.
+
+**Ressalvas**
+- **Amostra:** são 3 vídeos de uma mesma câmera.
+- **Gabarito 2D:** é uma projeção com posição de câmera estimada pelos autores do dataset e tem erro próprio. Serve para comparar os modelos entre si, não como precisão absoluta.
+- **Articulações:** cada fonte define as articulações à sua maneira. O quadril é o caso mais visível.
 
 ### 7.8 Cenário do leito
 
@@ -937,12 +975,11 @@ entre 10:00:26 e 10:01:48. Comparados com as anotações do REHAB24-6:
 
 ### 7.14 Próximos passos propostos
 
-Em ordem de prioridade. Os itens 3 e 4 precisam de decisão do grupo.
+Em ordem de prioridade. Os itens 2 e 3 precisam de decisão do grupo.
 
 1. **Calibrar os limiares de perfil** com os vídeos do REHAB24-6, separando vídeos para calibrar e para avaliar, e documentar a escolha.
-2. **Detecção de repetições por extremos locais** (picos com proeminência mínima) no lugar da volta ao repouso, para não emendar repetições como no PM_126.
-3. **Amplitude relativa à própria pessoa:** comparar cada repetição com a linha de base das primeiras repetições do mesmo vídeo, como o indicador vocal do Integrante 2 compara cada voz com ela mesma. Reduz o efeito da perspectiva e da variação entre pessoas, mas muda a semântica da regra. Não era exigência do enunciado nem do plano.
-4. **Flexão excessiva como terceiro tipo de evento.** Cobriria o erro mais comum do agachamento no REHAB24-6. Exige acrescentar um `type` à lista acordada no contrato.
+2. **Amplitude relativa à própria pessoa:** comparar cada repetição com a linha de base das primeiras repetições do mesmo vídeo, como o indicador vocal do Integrante 2 compara cada voz com ela mesma. Reduz o efeito da perspectiva e da variação entre pessoas, mas muda a semântica da regra. Não era exigência do enunciado nem do plano.
+3. **Flexão excessiva como terceiro tipo de evento.** Cobriria o erro mais comum do agachamento no REHAB24-6. Exige acrescentar um `type` à lista acordada no contrato.
 
 ## 8. Análise de áudio e texto clínico (Integrante 2)
 
@@ -1101,6 +1138,8 @@ desempenho esperado em ambiente hospitalar real.
 | Vídeo | Sinalização de repetições incorretas, sem calibração (REHAB24-6) | F1 0,39 (precisão 0,31, recall 0,55) | seção 7.11 |
 | Vídeo | Saída do leito (Charades SSP8C) | 18,0 s, dentro do intervalo anotado de 13,7–19,1 s | seção 7.8 |
 | Vídeo | Velocidade do YOLOv8n-pose em CPU | 68 a 78 FPS | seção 7.5 |
+| Vídeo | OpenPose × YOLOv8-pose contra o gabarito 2D (erro médio) | 46,0 px × 39,7 px; 0,77 × 59,3 FPS | seção 7.7 |
+| Vídeo | Erro do ângulo do joelho × 3D real, de perfil (OpenPose × YOLOv8-pose) | 8,8° × 11,8° | seção 7.7 |
 | Áudio e texto | WER, termos críticos, concordância do indicador | A preencher | seção 8.6 |
 | Anomalias | Precisão, recall e atraso de detecção | A preencher | seção 9.3 |
 
@@ -1111,7 +1150,6 @@ desempenho esperado em ambiente hospitalar real.
 ### 10.4 Trabalho futuro (desejáveis não concluídos)
 
 > **A atualizar no M4**, com o que não estiver estável:
-> - comparação OpenPose × YOLOv8-pose (Integrante 1);
 > - Text Analytics for Health (Integrante 2);
 > - NEWS2 (Integrante 3);
 > - confirmação de leitura, Azure Blob Storage e Docker Compose (Integrante 4);
@@ -1139,6 +1177,7 @@ python -m pytest
 | `test_p001_smoke.py` | cenário P001: alerta crítico pela regra, controle negativo fora da janela |
 | `test_app_smoke.py` | Streamlit inicia com e sem saídas |
 | `test_video_*.py` | geometria, regras, pipeline, CLI, OpenPose, leito, métricas e desenho dos rótulos do vídeo |
+| `test_comparacao.py` | cálculos da comparação OpenPose × YOLOv8-pose (ângulo 3D, trecho parado, variação, vista) |
 
 **O que os testes de vídeo usam**
 - **Vídeos sintéticos** gerados em pasta temporária, nunca dados da demo. Exercitam as regras e a entrada e saída de arquivos sem depender de modelo nem de dataset.
@@ -1168,7 +1207,7 @@ Vale para relatório, vídeo, dashboard e relatórios gerados (plano v5):
 - **Vídeos:** vêm só de datasets públicos gravados com consentimento dos
   participantes (seção 7.2). Cada integrante baixa a própria cópia pelos
   scripts, porque as licenças não permitem redistribuir.
-- **REHAB24-6 (CC BY-NC 4.0):** uso não comercial, com citação em qualquer
+- **REHAB24-6 (CC BY-NC 4.0)**, incluindo as articulações da captura de movimento usadas como gabarito: uso não comercial, com citação em qualquer
   publicação que use os dados.
 - **Charades:** uso para pesquisa acadêmica. Não permite redistribuir nem
   publicar os dados modificados. No relatório e no vídeo da entrega, só trechos
