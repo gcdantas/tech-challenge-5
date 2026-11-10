@@ -1,0 +1,28 @@
+# Python 3.13. Versões fixadas; instale com:
+#   python -m pip install -r requirements.txt
+# torch/torchvision vêm do PyPI (build de CPU no Windows). Para usar GPU NVIDIA,
+# veja a seção "GPU (opcional)" do README.
+
+# Contrato e configuração
+pydantic==2.14.3
+PyYAML==6.0.3
+
+# Dados
+numpy==2.5.4
+pandas==3.1.1
+pyarrow==26.0.1
+
+# Aplicação (I4)
+streamlit==1.67.0
+
+# Vídeo (I1)
+# OpenCV 4.x: a série 5 removeu cv2.dnn.readNetFromCaffe, necessário para o OpenPose.
+opencv-python==4.14.0.94
+ultralytics==8.4.208
+torch==2.15.0
+torchvision==0.29.2
+imageio-ffmpeg==0.8.1
+Jinja2==3.1.6
+
+# Testes
+pytest==9.2.0

@@ -218,3 +218,33 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---------------------------------------------------------------------------
+# Projeto (Tech Challenge Fase 4)
+# ---------------------------------------------------------------------------
+.idea/
+
+# Saídas geradas pelos módulos e pelos mocks (regeneráveis)
+outputs/
+
+# Dados brutos ficam fora do Git (vídeos, áudios, datasets baixados)
+data/video/*
+!data/video/.gitkeep
+data/audio/*
+!data/audio/.gitkeep
+data/raw/
+
+# Pesos de modelo: baixados por data/download_weights.py
+weights/
+*.pt
+*.pth
+*.onnx
+*.caffemodel
+*.pb
+
+# Contingência do e-mail de alerta (I4)
+*.eml
+
+# Documentos de referência do grupo (não versionados por decisão do grupo)
+docs/IADT - Fase 4 - Tech challenge.pdf
+docs/Tech Challenge Fase 4*Divis*.pdf

@@ -1,0 +1,40 @@
+# Fusão tardia MÍNIMA (versão provisória do M1, feita pelo I1; dono: I4).
+#
+# Cada modalidade já chega como Findings. Por paciente, regras explícitas com
+# precedência avaliadas numa janela deslizante. A combinação ponderada dos
+# scores (heurística de priorização) e o envio de e-mail ainda não existem:
+# ficam para o I4.
+
+window_minutes: 30
+# Uma mesma regra não dispara de novo para o mesmo paciente dentro do cooldown.
+cooldown_minutes: 30
+
+# Termos que contam como "termo respiratório" (comparados com evidence.term,
+# sem diferenciar maiúsculas; basta conter um deles).
+respiratory_terms:
+  - falta de ar
+  - dispneia
+  - dispnéia
+  - sem ar
+  - ofegante
+
+# Findings que não entram em nenhuma regra viram alerta isolado por severidade.
+severity_to_level:
+  low: atencao
+  medium: atencao
+  high: urgente
+  critical: critico
+
+# Cada condição é uma lista de alternativas (basta uma). A regra dispara quando
+# todas as condições têm um Finding dentro da mesma janela.
+rules:
+  - name: respiratorio_vocal_spo2
+    level: critico
+    description: >-
+      Indicador vocal alterado + termo respiratório na consulta ou na nota de
+      evolução + queda de SpO2 na mesma janela de 30 min
+    conditions:
+      - - {source: audio, type: indicador_vocal_alterado}
+      - - {source: audio, type: termo_critico, respiratory_term: true}
+        - {source: text, type: termo_critico, respiratory_term: true}
+      - - {source: vitals, type: dessaturacao}

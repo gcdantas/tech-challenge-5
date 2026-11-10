@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relatório de vídeo · {{ patient_id }}</title>
+<style>
+  :root { --fg:#1d232b; --muted:#5b6673; --line:#d9dee4; --bg:#ffffff; --soft:#f4f6f8;
+          --low:#2e86c1; --medium:#d68910; --high:#ca6f1e; --critical:#c0392b; }
+  * { box-sizing: border-box; }
+  body { font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--fg);
+         background: var(--bg); margin: 0; padding: 24px 16px 48px; }
+  main { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1.25rem; margin: 36px 0 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+  h3 { font-size: 1.05rem; margin: 22px 0 8px; }
+  .muted { color: var(--muted); }
+  .notice { background: var(--soft); border-left: 4px solid var(--low); padding: 10px 14px; margin: 16px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 0.92rem; }
+  th, td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: var(--soft); font-weight: 600; }
+  .kv th { width: 260px; }
+  .sev { font-weight: 600; padding: 1px 8px; border-radius: 10px; color: #fff; font-size: 0.82rem; }
+  .sev-low { background: var(--low); } .sev-medium { background: var(--medium); }
+  .sev-high { background: var(--high); } .sev-critical { background: var(--critical); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+  .grid figure { margin: 0; } .grid img { width: 100%; border: 1px solid var(--line); border-radius: 4px; }
+  figcaption { font-size: 0.82rem; color: var(--muted); }
+  td img { width: 160px; border: 1px solid var(--line); border-radius: 4px; }
+  video { width: 100%; max-width: 860px; background: #000; border-radius: 4px; }
+  svg { width: 100%; height: auto; background: var(--soft); border-radius: 4px; }
+  .legend span { display: inline-block; margin-right: 14px; font-size: 0.85rem; }
+  .swatch { display: inline-block; width: 12px; height: 12px; margin-right: 4px; vertical-align: -1px; }
+  .scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+<h1>Relatório automático de vídeo</h1>
+<p class="muted">Paciente sintético {{ patient_id }} · gerado em {{ generated_at }}</p>
+
+<div class="notice">
+  <strong>O sistema sinaliza risco e apoia a equipe; a decisão é clínica.</strong>
+  Este relatório indica desvios em relação a limiares configurados em <code>config/video.yaml</code>;
+  não é diagnóstico. O paciente sintético {{ patient_id }} tem dados que vêm de fontes distintas,
+  associadas só para a demonstração técnica.
+</div>
+
+{% if not physio and not bed and not openpose %}
+<p>Nenhum vídeo processado ainda para este paciente.</p>
+{% endif %}
+{% if skipped %}
+<p class="muted">Resumos de execução ignorados por estarem incompletos: {{ skipped|join(", ") }}</p>
+{% endif %}
+
+{% for run in physio %}
+<h2>Fisioterapia · {{ run.video }}</h2>
+<table class="kv">
+  <tr><th>Exercício</th><td>{{ run.exercise }} (ângulo principal: {{ run.joint_pt }}, lado {{ run.side_pt }})</td></tr>
+  <tr><th>Vídeo</th><td>{{ run.video_info.duration_s }} s · {{ run.video_info.width }}×{{ run.video_info.height }} · {{ run.video_info.fps }} fps</td></tr>
+  <tr><th>Início na linha do tempo da demo</th><td>{{ run.demo_start_fmt }} (demo_offset {{ run.demo_offset }} s)</td></tr>
+  <tr><th>Modelo de pose</th><td>{{ run.model.name }} (ultralytics {{ run.model.version }})</td></tr>
+  <tr><th>Repetições detectadas</th><td>{{ run.repetitions|length }}</td></tr>
+  <tr><th>Desvios sinalizados</th><td>{{ run.events|length }}</td></tr>
+  <tr><th>Quadros analisados com pose</th><td>{{ (run.frames_with_pose * 100)|round(1) }}%</td></tr>
+  <tr><th>Desempenho</th><td>{{ run.processing.processed_frames }} quadros analisados (1 a cada {{ run.processing.stride }});
+      inferência {{ run.processing.inference_fps or "—" }} FPS; ponta a ponta {{ run.processing.end_to_end_fps or "—" }} FPS</td></tr>
+</table>
+
+<h3>Desvios</h3>
+{% if run.events %}
+<div class="scroll"><table>
+  <tr><th>#</th><th>Tipo</th><th>Rep.</th><th>Horário na demo</th><th>Tempo no vídeo</th>
+      <th>Medido × esperado</th><th>Severidade</th><th>Quadro</th></tr>
+  {% for ev in run.events %}
+  <tr>
+    <td>{{ loop.index }}</td>
+    <td>{{ ev.type_pt }}<br><span class="muted">{{ ev.description }}</span></td>
+    <td>{{ ev.rep }}</td>
+    <td>{{ ev.start_fmt }}–{{ ev.end_fmt }}</td>
+    <td>{{ "%.1f"|format(ev.t_start) }}–{{ "%.1f"|format(ev.t_end) }} s</td>
+    <td>{{ ev.value }}° × {{ ev.expected[0] }}–{{ ev.expected[1] }}°<br><span class="muted">desvio {{ ev.deviation }}°</span></td>
+    <td><span class="sev sev-{{ ev.severity }}">{{ ev.severity }}</span><br><span class="muted">score {{ ev.score }}</span></td>
+    <td>{% if ev.frame_rel %}<a href="{{ ev.frame_rel }}"><img src="{{ ev.frame_rel }}" alt="Quadro do desvio {{ loop.index }}"></a>{% endif %}
+        {% if ev.clip_rel %}<br><a href="{{ ev.clip_rel }}">clipe</a>{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% else %}
+<p>Nenhum desvio sinalizado com os limiares atuais.</p>
+{% endif %}
+
+{% if run.chart %}
+<h3>Ângulos ao longo do vídeo</h3>
+<div class="legend">
+  <span><i class="swatch" style="background:#2e86c1"></i>{{ run.joint_pt }}</span>
+  <span><i class="swatch" style="background:#d68910"></i>inclinação do tronco</span>
+  <span><i class="swatch" style="background:#c0392b;opacity:.25"></i>desvio sinalizado</span>
+  <span class="muted">linhas tracejadas: limites esperados</span>
+</div>
+{{ run.chart|safe }}
+{% endif %}
+
+{% if run.annotated_rel %}
+<h3>Vídeo anotado</h3>
+<video controls preload="metadata" src="{{ run.annotated_rel }}"></video>
+{% endif %}
+
+{% if run.samples_rel %}
+<h3>Quadros anotados (YOLOv8-pose)</h3>
+<div class="grid">
+  {% for s in run.samples_rel %}<figure><a href="{{ s }}"><img src="{{ s }}" alt="Quadro anotado"></a></figure>{% endfor %}
+</div>
+{% endif %}
+{% endfor %}
+
+{% for run in openpose %}
+<h2>OpenPose · {{ run.video }}</h2>
+<p>OpenPose (modelo COCO, Caffe) executado pelo módulo DNN do OpenCV em
+{{ run.frames|length }} quadros. {{ run.mean_fps }} FPS médio em {{ run.backend }};
+{{ (run.missing_keypoint_ratio * 100)|round(1) }}% de keypoints ausentes;
+{{ run.failed_frames }} quadro(s) sem nenhum keypoint.</p>
+<div class="grid">
+  {% for fr in run.frames %}<figure><a href="{{ fr.rel }}"><img src="{{ fr.rel }}" alt="Quadro com esqueleto do OpenPose"></a>
+  <figcaption>{{ "%.1f"|format(fr.t) }} s · {{ fr.keypoints_found }}/18 keypoints</figcaption></figure>{% endfor %}
+</div>
+{% endfor %}
+
+{% for run in bed %}
+<h2>Leito · {{ run.video }}</h2>
+<p>Este cenário não sinaliza eventos: gera a série de movimentação
+(<code>movement.parquet</code>, ~{{ run.sample_hz }} Hz) usada pelo módulo de anomalias,
+que é o único a sinalizar saída do leito e imobilidade.</p>
+<table class="kv">
+  <tr><th>Vídeo</th><td>{{ run.video_info.duration_s }} s · {{ run.video_info.fps }} fps</td></tr>
+  <tr><th>Início na linha do tempo da demo</th><td>{{ run.demo_start_fmt }} (demo_offset {{ run.demo_offset }} s)</td></tr>
+  <tr><th>Modelos</th><td>{{ run.models|join(", ") }}</td></tr>
+  <tr><th>Leito</th><td>{{ run.bed_source }}</td></tr>
+  <tr><th>Amostras na série</th><td>{{ run.samples_count }} · pessoa visível em {{ (run.person_rate * 100)|round(1) }}% · no leito em {{ (run.in_bed_rate * 100)|round(1) }}%</td></tr>
+</table>
+{% if run.frames_rel %}
+<div class="grid">
+  {% for s in run.frames_rel %}<figure><a href="{{ s }}"><img src="{{ s }}" alt="Quadro anotado com pessoa, leito e zona da borda"></a></figure>{% endfor %}
+</div>
+{% endif %}
+{% endfor %}
+
+{% if metrics %}
+<h2>Métricas</h2>
+<p class="muted">As métricas foram calculadas sobre uma amostra pequena, roteirizada e destinada à
+validação técnica do protótipo; não representam validação clínica nem desempenho esperado em
+ambiente hospitalar real.</p>
+<table>
+  <tr><th>Vídeo</th><th>Evento</th><th>VP</th><th>FP</th><th>FN</th><th>Precisão</th><th>Recall</th><th>F1</th></tr>
+  {% for r in metrics.rows %}
+  <tr><td>{{ r.video }}</td><td>{{ r.type }}</td><td>{{ r.tp }}</td><td>{{ r.fp }}</td><td>{{ r.fn }}</td>
+      <td>{{ r.precision_fmt }}</td><td>{{ r.recall_fmt }}</td><td>{{ r.f1_fmt }}</td></tr>
+  {% endfor %}
+</table>
+{% if metrics.fps %}
+<table>
+  <tr><th>Vídeo</th><th>Cenário</th><th>FPS de inferência</th><th>FPS ponta a ponta</th></tr>
+  {% for r in metrics.fps %}<tr><td>{{ r.video }}</td><td>{{ r.scenario }}</td><td>{{ r.inference_fps or "—" }}</td><td>{{ r.end_to_end_fps or "—" }}</td></tr>{% endfor %}
+</table>
+{% endif %}
+{% endif %}
+
+<p class="muted" style="margin-top:40px">Gerado automaticamente por <code>modules/video</code>.
+Limiares em <code>config/video.yaml</code>.</p>
+</main>
+</body>
+</html>
