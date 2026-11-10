@@ -10,8 +10,9 @@ O paciente sintético P001 tem dados que vêm de fontes distintas, associadas s�
 para a demonstração técnica.
 
 > **Estado atual (10/11/2026):** marco M1 cumprido com mocks fictícios, exceto a
-> decisão sobre a fonte das prescrições (I3). Módulo de vídeo (I1) implementado,
-> ainda não validado com os vídeos reais da equipe. Contrato, `patients.yaml`,
+> decisão sobre a fonte das prescrições (I3). Módulo de vídeo (I1) implementado
+> e testado em vídeos do dataset público REHAB24-6; ainda faltam as gravações da
+> equipe e a calibração dos limiares. Contrato, `patients.yaml`,
 > Streamlit e fusão são **versões provisórias feitas pelo I1** para destravar o
 > trabalho; o dono é o I4. Áudio/texto (I2) e anomalias (I3) existem só como
 > mocks. Detalhes em [Status](#status-por-integrante).
@@ -69,16 +70,18 @@ Legenda: ✅ feito · 🟡 provisório ou parcial · ⬜ pendente
 | Item | Status |
 |---|---|
 | Mock: `movement.parquet` e `findings.jsonl` com 2 eventos | ✅ |
-| Pose com YOLOv8-pose, ângulos e amplitude por repetição | ✅ código; ⬜ validação em vídeo real |
-| Regras dos 2 eventos com limiares em `config/video.yaml` | ✅ código; ⬜ calibração |
-| OpenPose via OpenCV DNN com frames anotados (obrigatório) | ✅ código; ⬜ rodar no vídeo de fisioterapia real |
+| Pose com YOLOv8-pose, ângulos e amplitude por repetição | ✅ código; ✅ testado no REHAB24-6 (contagem de repetições: 63 de 63 no agachamento) |
+| Regras dos 2 eventos com limiares em `config/video.yaml` | ✅ código; 🟡 testadas no REHAB24-6, F1 0,43 sem calibração; ⬜ calibrar nas gravações da equipe |
+| OpenPose via OpenCV DNN com frames anotados (obrigatório) | ✅ código; 🟡 rodado no REHAB24-6; ⬜ rodar no vídeo da equipe |
+| Teste em dataset público (REHAB24-6): download, execução e avaliação reproduzíveis | ✅ (`data/download_rehab24.py`, `notebooks/rehab24/`) |
 | YOLOv8 pessoa + leito, zona da borda, `movement.parquet` com `in_bed` | ✅ código; ⬜ validar detecção do leito real |
 | `demo_offset` nos Findings e no parquet | ✅ |
 | Relatório automático HTML e clipes dos desvios | ✅ |
 | Métricas (P/R/F1 por evento, FPS) | ✅ código; ⬜ números reais (dependem dos rótulos) |
 | Gravar ≥ 6 vídeos (20–60 s) com consentimento por escrito | ⬜ |
 | Rotular desvios e saídas do leito (`data/labels/`) e repassar ao I3 | ⬜ |
-| `docs/03-video.md` | ⬜ |
+| `docs/03-video.md` | 🟡 método, modelos, regras, saídas e resultados no REHAB24-6 escritos; resultados com as gravações da equipe pendentes |
+| Decidir com o grupo: amplitude relativa à própria pessoa e evento de flexão excessiva (capítulo 3, seção 3.13) | ⬜ |
 | Desejável (semana 4): comparação OpenPose × YOLOv8-pose | ⬜ (keypoints já salvos para ela) |
 
 ### I2: áudio e texto clínico
@@ -140,12 +143,13 @@ config/               video.yaml (limiares do I1), fusion.yaml (regras da fusão
 data/
   patients.yaml       pacientes sintéticos e demo_offset por artefato
   download_weights.py baixa os pesos dos modelos para weights/
+  download_rehab24.py baixa vídeos de teste do dataset público REHAB24-6
   labels/             rótulos manuais dos vídeos (modelo: video.example.yaml)
   notes/              notas de evolução sintéticas (I2) - vazio
-  video/              vídeos da equipe (fora do Git)
+  video/              vídeos da equipe e de datasets públicos (fora do Git)
 scripts/make_mocks.py gera os mocks fictícios do M1
-notebooks/            experimentos e métricas - vazio
-docs/                 relatório técnico - capítulos ainda não escritos
+notebooks/rehab24/    teste do módulo de vídeo no REHAB24-6 (config da abdução, avaliação)
+docs/                 relatório técnico: 03-video.md (I1); enunciado oficial em PDF
 tests/                pytest
 outputs/              saídas geradas (fora do Git)
 weights/              pesos dos modelos (fora do Git)
@@ -474,6 +478,28 @@ Os limiares de `config/video.yaml` são valores iniciais e precisam ser
 calibrados com os vídeos reais. O relatório sinaliza desvios em relação a esses
 limiares; não é diagnóstico.
 
+### Teste com o dataset público REHAB24-6
+
+Antes das gravações da equipe, o módulo foi testado em 4 vídeos do REHAB24-6
+(Zenodo, doi:10.5281/zenodo.13305826, licença CC BY-NC 4.0, uso acadêmico com
+citação). São 3 agachamentos e 1 abdução de braço, com repetições anotadas por
+um fisioterapeuta como corretas ou incorretas.
+
+```powershell
+python -m data.download_rehab24       # 4 vídeos (~104 MB) e anotações; lê só esses trechos do zip de 2,5 GB
+python -m notebooks.rehab24.avaliacao  # tabelas, depois de rodar o módulo (comandos no capítulo 3, seção 3.14)
+```
+
+Resumo (sem calibrar os limiares):
+- **Contagem de repetições:** 63 de 63 no agachamento.
+- **Sinalização de repetições incorretas:** F1 de 0,43.
+- **Causa da sinalização fraca:** os ângulos mudam com a vista da câmera (perfil × meio-perfil), e os erros do dataset são principalmente de flexão excessiva, que as regras não cobrem.
+
+Análise completa e próximos passos em `docs/03-video.md` (seções 3.10.3 e 3.13).
+As métricas foram calculadas sobre uma amostra pequena, roteirizada e destinada
+à validação técnica do protótipo; não representam validação clínica nem
+desempenho esperado em ambiente hospitalar real.
+
 ## Testes
 
 ```powershell
@@ -487,7 +513,7 @@ python -m pytest
 | `test_mocks_schema.py` | todos os mocks validam, estão nos caminhos do plano, são marcados e determinísticos |
 | `test_p001_smoke.py` | cenário P001: alerta crítico pela regra, controle negativo fora da janela |
 | `test_app_smoke.py` | Streamlit inicia com e sem saídas |
-| `test_video_*.py` | geometria, regras, pipeline, CLI, OpenPose, leito e métricas do vídeo |
+| `test_video_*.py` | geometria, regras, pipeline, CLI, OpenPose, leito, métricas e desenho dos rótulos do vídeo |
 
 Os testes de vídeo usam vídeos sintéticos gerados em pasta temporária, nunca
 dados da demo. Os que rodam modelos reais (YOLOv8, OpenPose) são pulados se os
@@ -516,3 +542,7 @@ Vale para relatório, vídeo, dashboard e relatórios gerados (plano v5):
   `data/audio/`, gravados com consentimento por escrito.
 - **E-mails de alerta:** só para endereços da equipe.
 - **Fontes de dados:** só dados públicos, sintéticos ou da equipe.
+- **Datasets públicos:** respeitam a licença de cada um. O REHAB24-6 (CC BY-NC
+  4.0) só é usado para testes e, se aparecer no relatório, com a citação
+  (Černek, Sedmidubsky e Budikova, SISAP 2024). Os vídeos ficam em
+  `data/video/rehab24-6/`, fora do Git.
