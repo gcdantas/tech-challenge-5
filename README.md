@@ -131,6 +131,9 @@ Legenda: ✅ feito · 🟡 provisório ou parcial · ⬜ pendente
 | Documentação técnica (seção 7) | ✅ |
 | Decidir com o grupo: amplitude relativa à própria pessoa e evento de flexão excessiva (seção 7.14) | ⬜ |
 | Desejável (Integrante 1): comparação OpenPose × YOLOv8-pose | ✅ com o gabarito da captura de movimento do REHAB24-6 (seção 7.7) |
+| Exemplos de anomalias detectadas no relatório (enunciado: "exemplos de anomalias detectadas") | ✅ figuras em `docs/img/video/` (seções 7.7, 7.8 e 7.12) |
+| Pacote de clipes e quadros anotados para a edição do vídeo (Integrante 4) | ✅ `python -m scripts.material_video --pacote` → `outputs/pacote_video/` (seção 7.12) |
+| Trecho do vídeo de entrega, bloco 1:00–3:30 do roteiro | ⬜ gravação de tela pelo Integrante 1 |
 
 ### Integrante 2: áudio e texto clínico
 
@@ -198,10 +201,11 @@ data/
   notes/              notas de evolução sintéticas (Integrante 2) - vazio
   video/              vídeos dos datasets (fora do Git)
 scripts/make_mocks.py gera os mocks fictícios do M1
+scripts/material_video.py figuras do README e pacote do vídeo para o Integrante 4
 notebooks/rehab24/    avaliação e calibração do vídeo no REHAB24-6 (config da abdução, scripts)
 notebooks/charades/   conferência da série do leito com a anotação do Charades
 notebooks/comparacao/ comparação OpenPose × YOLOv8-pose com o gabarito do REHAB24-6
-docs/                 enunciado oficial (PDF); a documentação técnica fica neste README
+docs/                 enunciado oficial (PDF) e figuras do README (img/video/)
 tests/                pytest
 outputs/              saídas geradas (fora do Git)
 weights/              pesos dos modelos (fora do Git)
@@ -603,6 +607,9 @@ python -m notebooks.charades.leito      # série do leito do P001 × anotação 
 # comparação OpenPose × YOLOv8-pose (seção 7.7), ~4 min em CPU
 python -m data.download_rehab24 --gabarito   # articulações 2D/3D da captura de movimento (~16 MB lidos)
 python -m notebooks.comparacao.openpose_yolo
+
+# figuras do README (docs/img/video/) e pacote para a edição do vídeo (outputs/pacote_video/)
+python -m scripts.material_video
 ```
 
 ### 7.4 Visão geral do pipeline
@@ -771,6 +778,10 @@ Como funciona:
 
 O esqueleto ficou coerente com o corpo nos quadros inspecionados.
 
+![Quadro do OpenPose no agachamento do PM_105](docs/img/video/openpose_PM_105.jpg)
+
+*OpenPose COCO (OpenCV DNN) no PM_105, 12 de 18 keypoints. Vídeo: REHAB24-6 (Černek, Sedmidubsky e Budikova, SISAP 2024; CC BY-NC 4.0).*
+
 Saídas:
 - `frames/<video>/openpose_*.jpg`: quadros com o esqueleto;
 - `runs/openpose_<video>.json`: keypoints, tempos e estatísticas;
@@ -805,6 +816,10 @@ esqueletos e o gabarito.
 - **Velocidade:** o YOLOv8-pose é **77 vezes mais rápido** em CPU. É o que permite analisar o vídeo inteiro. O OpenPose, a 0,77 FPS, levaria cerca de 32 minutos para um vídeo de 100 s analisado a 15 quadros por segundo, como o módulo faz.
 - **Estabilidade e cobertura:** o YOLOv8-pose é **mais estável** (2,4 vezes menos variação num ponto parado), deixa menos pontos ausentes e erra menos em pixels na média. Nenhum dos dois falhou por completo em nenhum quadro.
 - **Ângulo do joelho de perfil:** foi o único critério em que o OpenPose se saiu melhor (8,8° contra 11,8°), e isso se repetiu nos 3 vídeos, com 24 a 32 medidas por vídeo. Uma hipótese, não testada: o ponto do quadril de cada modelo e o do gabarito são definidos de formas diferentes, e o erro do quadril entra no ângulo.
+![Comparação OpenPose × YOLOv8-pose com o gabarito](docs/img/video/comparacao_openpose_yolo_PM_105.jpg)
+
+*Agachamento fundo no PM_105: YOLOv8-pose em verde, OpenPose em laranja e gabarito da captura de movimento em amarelo. Vídeo e gabarito: REHAB24-6 (Černek, Sedmidubsky e Budikova, SISAP 2024; CC BY-NC 4.0).*
+
 - **Meio-perfil:** os dois erram 17° a 18°. O próprio gabarito 2D, comparado com o 3D, já erra 13° nessa vista (contra 2,1° de perfil). A maior parte desse erro vem da **projeção em 2D**, não do modelo, o que confirma com medida a limitação de perspectiva da seção 7.11.
 
 **Justificativa do modelo da demo.** O YOLOv8-pose é usado nas regras. Os
@@ -862,6 +877,10 @@ internação, é composta pelo simulador do Integrante 3 a partir deste arquivo.
 | Saída do leito | `in_bed` passa a `false` de forma estável aos **18,0 s**; o Charades anota "levantando-se" de 13,7 a 19,1 s |
 | Oscilações | um quadro falso aos 11,8 s; alternância entre 22 e 27 s, quando a pessoa se debruça sobre a cama para arrumar o cobertor |
 | Rótulo para o Integrante 3 | `data/labels/SSP8C.yaml`: saída aos 19,1 s (fim de "levantando-se" na anotação do Charades) → `bed_exit_labels.json`, 10:10:19,1 na demo |
+
+![Leito antes e depois da saída](docs/img/video/leito_SSP8C.jpg)
+
+*SSP8C aos 0 s (no leito, tronco a 84°) e aos 20 s (fora do leito, tronco a 6°). Em azul o leito, em laranja a zona da borda (área crítica). Vídeo: Charades (Sigurdsson et al., ECCV 2016; Allen Institute for AI).*
 
 As oscilações vêm da limitação da sobreposição de caixas em 2D (seção 7.13). O
 detector de saída do leito do Integrante 3 deve exigir alguns segundos fora do
@@ -985,7 +1004,7 @@ inclina mais o tronco que as outras, mesmo executando corretamente.
 **Leito.** Ver o resultado do SSP8C na seção 7.8: a saída estável aos 18,0 s
 fica dentro do intervalo anotado de "levantando-se" (13,7–19,1 s).
 
-### 7.12 Uso na demonstração do P001
+### 7.12 Exemplos e uso na demonstração do P001
 
 O passo 1 do cenário do P001 pede uma "amplitude incompleta → Finding video de
 severidade média". O vídeo de fisioterapia do P001 (PM_105) gera 16 Findings
@@ -999,10 +1018,35 @@ entre 10:00:26 e 10:01:48. Comparados com as anotações do REHAB24-6:
 | 17–21 (perfil) | incorretas | postura fora da faixa em todas (tronco 45°–60°) |
 | 14 | incorreta | nada |
 
+![Ângulos do joelho e do tronco ao longo do PM_105](docs/img/video/angulos_PM_105.png)
+
+*Ângulos medidos pelo YOLOv8-pose no vídeo de fisioterapia do P001, com os limites calibrados (tracejados) e os desvios sinalizados (faixas). Vídeo: REHAB24-6 (Černek, Sedmidubsky e Budikova, SISAP 2024; CC BY-NC 4.0).*
+
+**Exemplos de anomalias detectadas**
+
+| Amplitude incompleta (repetição 12) | Postura fora da faixa (repetição 18) |
+|---|---|
+| ![Desvio de amplitude incompleta](docs/img/video/fisio_amplitude_rep12.jpg) | ![Desvio de postura fora da faixa](docs/img/video/fisio_postura_rep18.jpg) |
+| 10:01:02, severidade média: joelho a 133°, esperado até 115° | 10:01:37, severidade alta: tronco a 60° por 1,3 s, esperado até 35° |
+
+*Quadros anotados pelo módulo (YOLOv8-pose). As duas repetições estão anotadas como incorretas no dataset. Vídeo: REHAB24-6 (Černek, Sedmidubsky e Budikova, SISAP 2024; CC BY-NC 4.0).*
+
 **Para o vídeo da entrega:**
 - **Amplitude incompleta:** mostrar a **repetição 12** (10:01:02, severidade média, joelho a 133°, anotada como incorreta), que é o Finding de exemplo da seção 6.2.
 - **Postura fora da faixa:** a **repetição 18** (10:01:37, tronco a 60°, severidade alta).
 - **Falsos positivos:** dizer que existem e por quê. O relatório HTML lista todos. Depois da calibração eles têm severidade baixa.
+
+**Pacote para a edição do vídeo (Integrante 4).** O plano pede que cada
+integrante entregue o próprio material pronto. O comando
+`python -m scripts.material_video --pacote` monta em `outputs/pacote_video/`:
+- `clipes/`: clipes anotados dos desvios das repetições 12 e 18;
+- `videos/`: a sessão de fisioterapia e o leito inteiros, anotados;
+- `quadros/`: os desvios, os 20 quadros do OpenPose, o leito antes e depois da saída, a comparação com o gabarito e o gráfico de ângulos;
+- `LEIAME.md`: o que cada arquivo mostra, os horários na demo, a citação dos datasets e a linguagem obrigatória para a narração.
+
+O pacote fica fora do Git: a licença do Charades proíbe redistribuir os dados,
+então cada integrante gera a própria cópia. As repetições usadas podem ser
+trocadas com `--amplitude-rep` e `--postura-rep`.
 
 ### 7.13 Limitações
 
@@ -1259,6 +1303,10 @@ Vale para relatório, vídeo, dashboard e relatórios gerados (plano v5):
 - **Charades:** uso para pesquisa acadêmica. Não permite redistribuir nem
   publicar os dados modificados. No relatório e no vídeo da entrega, só trechos
   curtos ou quadros, com a citação.
+- **Figuras do README** (`docs/img/video/`): quadros parados dos dois datasets,
+  reduzidos e citados na legenda, como as licenças permitem em publicação
+  acadêmica. Os vídeos e o pacote para a edição (`outputs/pacote_video/`) não
+  vão para o Git.
 - **Áudio:** as consultas simuladas do Integrante 2 ficam em `data/audio/`,
   conforme o plano.
 - **E-mails de alerta:** só para endereços da equipe.
