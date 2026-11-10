@@ -134,6 +134,10 @@ Legenda: ✅ feito · 🟡 provisório ou parcial · ⬜ pendente
 | Exemplos de anomalias detectadas no relatório (enunciado: "exemplos de anomalias detectadas") | ✅ figuras em `docs/img/video/` (seções 7.7, 7.8 e 7.12) |
 | Pacote de clipes e quadros anotados para a edição do vídeo (Integrante 4) | ✅ `python -m scripts.material_video --pacote` → `outputs/pacote_video/` (seção 7.12) |
 | Trecho do vídeo de entrega, bloco 1:00–3:30 do roteiro | ⬜ gravação de tela pelo Integrante 1 |
+| Entregar o pacote do vídeo ao Integrante 4 | ⬜ o pacote não vai para o Git: enviar a cópia gerada ou combinar que o Integrante 4 gere a dele (seção 7.12) |
+| Confirmar com o Integrante 3 as unidades do `movement.parquet` e o comportamento quando a pessoa não é detectada | ⬜ proposta na seção 7.8 |
+| M4: cópia de segurança dos arquivos da demo (vídeos, gabarito, `outputs/video/P001/`) | ⬜ |
+| M5: revisar a seção 7 no relatório consolidado e testar o README num ambiente limpo | ⬜ |
 
 ### Integrante 2: áudio e texto clínico
 
@@ -849,7 +853,10 @@ Cores nos quadros anotados:
 - vermelho: pessoa fora do leito.
 
 **Série de movimentação (`outputs/video/<paciente>/movement.parquet`).** Uma
-linha por amostra, a ~5 Hz, com as colunas definidas no plano:
+linha por amostra, a ~5 Hz, com as colunas definidas no plano. O plano define
+só os nomes das colunas. As unidades abaixo e o comportamento quando a pessoa
+não é detectada são uma **proposta do Integrante 1, a confirmar com o
+Integrante 3**, que consome a série:
 
 | Coluna | Tipo | Definição |
 |---|---|---|
