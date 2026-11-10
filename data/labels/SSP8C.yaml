@@ -1,0 +1,9 @@
+# Rótulo de saída do leito do vídeo Charades SSP8C (leito do P001).
+# Não é anotação nossa: vem da anotação humana do Charades, ação c154
+# "Someone is standing up from somewhere", de 13,7 a 19,1 s. Usamos o fim da
+# ação (19,1 s) como instante em que a pessoa já está fora do leito.
+# Tempos em segundos desde o início do vídeo.
+
+video: data/video/charades/SSP8C.mp4
+events: []
+bed_exits: [19.1]
