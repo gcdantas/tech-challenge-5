@@ -3,6 +3,7 @@
     python -m data.download_rehab24             # os 7 vídeos usados no projeto
     python -m data.download_rehab24 --list Ex6  # lista os vídeos de um exercício
     python -m data.download_rehab24 Ex6/PM_008-Camera18-30fps-transposed.mp4
+    python -m data.download_rehab24 --gabarito  # + articulações 2D/3D da captura de movimento
 
 REHAB24-6 (Zenodo, doi:10.5281/zenodo.13305826), licença CC BY-NC 4.0: uso
 acadêmico/não comercial, citando
@@ -41,9 +42,25 @@ DEFAULT_VIDEOS = [
 ]
 
 
+JOINTS_2D_ZIP = f"{RECORD}/2d_joints.zip/content"
+JOINTS_3D_ZIP = f"{RECORD}/3d_joints.zip/content"
+# Vídeos de agachamento usados na comparação OpenPose × YOLOv8-pose (câmera 18).
+GROUND_TRUTH_VIDEOS = ["PM_105", "PM_113", "PM_118"]
+
+
+def get_ground_truth(video_ids: list[str], camera: str = "c18", exercise: str = "Ex6") -> None:
+    """Gabarito da captura de movimento, a 30 FPS: articulações 2D projetadas na câmera
+    (quadros × 26 × [x, y] em pixels) e 3D (quadros × 26 × [x, y, z, 1] em metros)."""
+    download(f"{RECORD}/joints_names.txt/content", DEST / "joints_names.txt")
+    extract_members(JOINTS_2D_ZIP, [f"{exercise}/{v}-{camera}-30fps.npy" for v in video_ids], DEST / "joints2d")
+    extract_members(JOINTS_3D_ZIP, [f"{exercise}/{v}-30fps.npy" for v in video_ids], DEST / "joints3d")
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Baixa vídeos do REHAB24-6 (CC BY-NC 4.0).")
     ap.add_argument("--list", metavar="FILTRO", nargs="?", const="", help="lista os vídeos do zip")
+    ap.add_argument("--gabarito", action="store_true",
+                    help="baixa também as articulações 2D e 3D da captura de movimento (comparação de modelos)")
     ap.add_argument("videos", nargs="*", help="membros do zip (padrão: os 7 usados no projeto)")
     args = ap.parse_args(argv)
     if args.list is not None:
@@ -53,6 +70,8 @@ def main(argv: list[str] | None = None) -> int:
     for name in ANNOTATIONS:
         download(f"{RECORD}/{name}/content", DEST / name)
     extract_members(VIDEOS_ZIP, args.videos or DEFAULT_VIDEOS, DEST)
+    if args.gabarito:
+        get_ground_truth(GROUND_TRUTH_VIDEOS)
     return 0
 
 
