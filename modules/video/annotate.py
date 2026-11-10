@@ -59,23 +59,56 @@ def draw_edge_zone(frame: np.ndarray, outer, inner, color=ORANGE, alpha: float =
     return frame
 
 
-def put_label(frame: np.ndarray, text: str, org: tuple[int, int], color=BLACK, scale: float | None = None) -> None:
+def put_label(
+    frame: np.ndarray, text: str, org: tuple[int, int], color=BLACK, scale: float | None = None
+) -> tuple[int, int, int, int]:
+    """Texto branco sobre faixa colorida; a faixa termina (embaixo) em ``org[1]``.
+
+    Reduz a fonte se o texto não couber na largura do quadro e, no tamanho
+    mínimo, corta o texto com reticências. Devolve a faixa (x1, y1, x2, y2)."""
     scale = scale or max(0.5, frame.shape[0] / 900)
-    th = max(1, int(scale * 2))
-    (w, h), base = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, scale, th)
     x, y = org
+    avail = frame.shape[1] - x - 8
+
+    def size(s: str, sc: float):
+        t = max(1, int(sc * 2))
+        return cv2.getTextSize(s, cv2.FONT_HERSHEY_SIMPLEX, sc, t), t
+
+    while True:
+        ((w, h), base), th = size(text, scale)
+        if w + 4 <= avail or scale <= 0.35:
+            break
+        scale *= 0.9
+    while w + 4 > avail and len(text) > 4:
+        text = text[:-4] + "..."
+        ((w, h), base), th = size(text, scale)
     y = max(h + base, y)
-    cv2.rectangle(frame, (x, y - h - base), (x + w + 4, y + base // 2), color, -1)
-    cv2.putText(frame, text, (x + 2, y - base // 2), cv2.FONT_HERSHEY_SIMPLEX, scale, WHITE, th, cv2.LINE_AA)
+    rect = (x, y - h - base, x + w + 4, y)
+    cv2.rectangle(frame, rect[:2], rect[2:], color, -1)
+    cv2.putText(frame, text, (x + 2, y - base), cv2.FONT_HERSHEY_SIMPLEX, scale, WHITE, th, cv2.LINE_AA)
+    return rect
 
 
 def put_lines(frame: np.ndarray, lines: list[str], color=BLACK) -> np.ndarray:
     """Bloco de texto no canto superior esquerdo (OpenCV não desenha acentos: use ASCII)."""
     scale = max(0.5, frame.shape[0] / 900)
-    step = int(32 * scale) + 8
-    for i, line in enumerate(lines):
-        put_label(frame, line, (8, 8 + step * (i + 1)), color, scale)
+    y = 8
+    for line in lines:
+        (_, h), base = cv2.getTextSize(line, cv2.FONT_HERSHEY_SIMPLEX, scale, max(1, int(scale * 2)))
+        rect = put_label(frame, line, (8, y + h + base), color, scale)
+        y = rect[3] + 6
     return frame
+
+
+def put_labels_bottom(frame: np.ndarray, lines: list[str], color=RED) -> list[tuple[int, int, int, int]]:
+    """Empilha rótulos de baixo para cima no rodapé, sem sobreposição."""
+    rects = []
+    y = frame.shape[0] - 12
+    for line in lines:
+        rect = put_label(frame, line, (8, y), color)
+        rects.append(rect)
+        y = rect[1] - 6
+    return rects
 
 
 def ascii_text(text: str) -> str:

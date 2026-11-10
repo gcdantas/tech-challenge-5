@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 
 from contracts.finding import Finding, ModelInfo
-from modules.video.annotate import RED, ascii_text, draw_pose, put_label, put_lines
+from modules.video.annotate import RED, ascii_text, draw_pose, put_labels_bottom, put_lines
 from modules.video.config import VideoConfig
 from modules.video.physio import JOINT_PT, PhysioEvent, PhysioResult, PoseFrame, analyze_pose_frames
 from modules.video.pose import PoseEstimator
@@ -154,9 +154,11 @@ def render(
                 color = RED if active else (80, 200, 80)
                 draw_pose(canvas, last_pose.keypoints, last_pose.conf, min_conf, color)
             put_lines(canvas, _overlay_lines(row, joint_col, JOINT_PT[joint], rep))
-            for j, k in enumerate(active):
-                label = ascii_text(f"DESVIO: {EVENT_PT[result.events[k].type]} (rep {result.events[k].rep})")
-                put_label(canvas, label, (8, canvas.shape[0] - 12 - 40 * j), RED)
+            put_labels_bottom(
+                canvas,
+                [ascii_text(f"DESVIO: {EVENT_PT[result.events[k].type]} (rep {result.events[k].rep})") for k in active],
+                RED,
+            )
 
             if full is not None:
                 full.write(canvas)
