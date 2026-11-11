@@ -598,6 +598,45 @@ Vídeo fora do `patients.yaml`:
 - **Vários vídeos:** podem ir no mesmo `--input`.
 - **Só leito:** rodar só vídeos de leito não altera o `findings.jsonl`.
 
+#### Como os outros integrantes geram as saídas do vídeo
+
+Vídeos, pesos e `outputs/` não vão para o Git, e a licença do Charades proíbe
+redistribuir os dados. Por isso cada integrante gera na própria máquina só o
+que consome. Antes, faça `git pull` e a instalação da seção 5.
+
+| Integrante | O que usa do vídeo | Onde fica |
+|---|---|---|
+| Integrante 2 | Nada do vídeo. Usa só o contrato e o `patients.yaml`, que já estão no Git | — |
+| Integrante 3 | Série de movimentação do leito e rótulo de saída do leito | `outputs/video/P001/movement.parquet`, `outputs/video/P001/bed_exit_labels.json` |
+| Integrante 4 | Findings do vídeo para a fusão; relatório, quadros e clipes para o dashboard; pacote para a edição do vídeo de entrega | `outputs/video/P001/`, `outputs/pacote_video/` |
+
+**Integrante 3** (cerca de 15 MB de download, segundos de processamento):
+
+```powershell
+python -m data.download_weights --only yolo
+python -m data.download_charades
+python -m modules.video.run --patient P001 --input data/video/charades/SSP8C.mp4
+```
+
+O rótulo de saída do leito vem de `data/labels/SSP8C.yaml`, que já está no Git.
+
+**Integrante 4** (cerca de 250 MB de download, uns 2 minutos de processamento em CPU):
+
+```powershell
+python -m data.download_weights
+python -m data.download_rehab24 Ex6/PM_105-Camera18-30fps-transposed.mp4
+python -m data.download_charades
+python -m modules.video.run --patient P001 --input data/video/rehab24-6/PM_105-Camera18-30fps-transposed.mp4 data/video/charades/SSP8C.mp4
+python -m modules.video.openpose --patient P001 --max-frames 20 --input data/video/rehab24-6/PM_105-Camera18-30fps-transposed.mp4
+python -m scripts.make_mocks --skip i1   # sem --skip i1, os mocks apagam as saídas reais do vídeo
+python -m scripts.material_video --pacote
+streamlit run app/streamlit_app.py
+```
+
+- **Figura de comparação no pacote:** sem o gabarito, o pacote sai sem a figura da comparação OpenPose × YOLOv8-pose. Para incluí-la, rode antes `python -m data.download_rehab24 --gabarito` e `python -m notebooks.comparacao.openpose_yolo` (cerca de 4 minutos a mais). A figura já está no README.
+- **Cópia direta:** dentro do grupo, o Integrante 1 também pode enviar a própria cópia de `outputs/video/P001/` e `outputs/pacote_video/`. A restrição do Charades é sobre publicar. Gerar pelos comandos garante que todos usem a mesma versão.
+- **Ambiente limpo:** esta sequência ainda não foi testada do zero (pendência do M5 no status do Integrante 1).
+
 Avaliação contra as anotações dos datasets (seção 7.11):
 
 ```powershell
