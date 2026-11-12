@@ -27,3 +27,9 @@ matplotlib==3.11.2      # gráfico de ângulos das figuras do README (scripts/ma
 
 # Testes
 pytest==9.2.0
+
+# Áudio e texto clínico (I2); instalados e testados em CPython 3.13 / Windows x64
+azure-cognitiveservices-speech==1.53.0
+azure-ai-textanalytics==5.3.0
+praat-parselmouth==0.4.7
+python-dotenv==1.2.4

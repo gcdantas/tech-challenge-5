@@ -9,11 +9,12 @@ temporal. **O sistema sinaliza risco e apoia a equipe; a decisão é clínica.**
 O paciente sintético P001 tem dados que vêm de fontes distintas, associadas só
 para a demonstração técnica.
 
-> **Estado atual (10/11/2026):**
+> **Estado atual (12/11/2026):**
 > - **M1:** cumprido com mocks fictícios, exceto a decisão sobre a fonte das prescrições (Integrante 3).
 > - **Vídeo (Integrante 1):** módulo implementado e rodando com vídeos reais de datasets públicos: REHAB24-6 na fisioterapia e Charades no leito. O grupo decidiu não gravar vídeos próprios.
 > - **Peças provisórias:** contrato, `patients.yaml`, Streamlit e fusão foram feitos pelo Integrante 1 para destravar o trabalho; o dono é o Integrante 4.
-> - **Áudio/texto (Integrante 2) e anomalias (Integrante 3):** existem só como mocks.
+> - **Áudio/texto (Integrante 2):** módulo implementado em Python 3.13 e validado com Azure real, seis consultas sintéticas, baseline do mesmo locutor e revisão humana.
+> - **Anomalias (Integrante 3):** existem só como mocks.
 >
 > Detalhes em [Status por integrante](#3-status-por-integrante).
 
@@ -144,15 +145,15 @@ Legenda: ✅ feito · 🟡 provisório ou parcial · ⬜ pendente
 | Item | Status |
 |---|---|
 | Mock: `transcript.json`, Findings de áudio e de texto | ✅ (provisório, feito pelo Integrante 1) |
-| Recursos Azure Speech e AI Language, credenciais por canal privado, seção de ambiente no README | ⬜ |
-| Gravar 6–8 consultas simuladas (normal, cansado, fala arrastada, ofegante) | ⬜ |
-| Transcrição Azure Speech to Text (pt-BR) com timestamps | ⬜ |
-| Sentimento e termos críticos (Azure AI Language + regex) | ⬜ |
-| Notas de evolução sintéticas do P001 em `data/notes/`, Findings `source: text`, `notes.json` | ⬜ |
-| Indicador experimental de alteração vocal (taxa de fala, pausas, pitch, jitter, shimmer; z-score contra a linha de base do próprio paciente) | ⬜ |
-| Cache das respostas Azure em `outputs/audio/cache/` | ⬜ |
-| `analyze()` e CLI em `modules/audio/` | ⬜ |
-| Métricas (WER, acerto dos termos, concordância do indicador) e seção 8 deste README | ⬜ |
+| Recursos Azure Speech e AI Language, credenciais por canal privado, seção de ambiente no README | ✅ recursos F0 configurados e execução real validada |
+| Gravar 6–8 consultas simuladas (normal, cansado, fala arrastada, ofegante) | ✅ seis consultas e um baseline neutro do mesmo locutor |
+| Transcrição Azure Speech to Text (pt-BR) com timestamps | ✅ executada no Azure real e revisada por uma pessoa |
+| Sentimento e termos críticos (Azure AI Language + regex) | ✅ executados no Azure real nas consultas e nas notas sintéticas |
+| Notas de evolução sintéticas do P001 em `data/notes/`, Findings `source: text`, `notes.json` | ✅ duas notas e comparação temporal implementadas |
+| Indicador experimental de alteração vocal (taxa de fala, pausas, pitch, jitter, shimmer; z-score contra a linha de base do próprio paciente) | ✅ avaliado nas seis consultas sintéticas; sem validade clínica |
+| Cache das respostas Azure em `outputs/audio/cache/` | ✅ cache por conteúdo e parâmetros, sem persistir chaves |
+| `analyze()` e CLI em `modules/audio/` | ✅ arquivo individual e cenário P001, com mock explícito |
+| Métricas (WER, acerto dos termos, concordância do indicador) e seção 8 deste README | ✅ medidas em amostra sintética revisada, com limitações declaradas |
 | Desejável (Integrante 2): Text Analytics for Health | ⬜ |
 
 ### Integrante 3: anomalias e simulador
@@ -1120,67 +1121,91 @@ Os dois precisam de decisão do grupo.
 
 ## 8. Análise de áudio e texto clínico (Integrante 2)
 
-> **A preencher pelo Integrante 2.** Hoje só existem os mocks (seção 6.3).
-> Conteúdo mínimo previsto no plano:
-> - dados;
-> - serviços Azure;
-> - indicador vocal;
-> - notas de evolução;
-> - métricas;
-> - transcrição e nota anotadas.
-
-O resultado vocal é apresentado como **indicador experimental de alteração
-vocal, baseado em características acústicas**, nunca como diagnóstico de
-disartria ou de dificuldade respiratória.
+**Implementado e validado localmente e no Azure real.** O módulo está em
+`modules/audio/`, com configuração em `config/audio.yaml`. Arquitetura,
+parâmetros, reprodução e limitações estão detalhados em
+[docs/04-audio.md](docs/04-audio.md).
 
 ### 8.1 Dados
 
-> **A preencher:** consultas simuladas em português (paciente normal, cansado,
-> com fala arrastada, ofegante), em `data/audio/` (`.wav` 16 kHz mono), e 2 a 3
-> notas de evolução sintéticas do P001 em `data/notes/`: uma estável e uma com
-> piora ("dispneia aos esforços", "sonolência").
+Foram criadas duas notas de evolução sintéticas: uma estável e outra com piora,
+dispneia, sonolência e falta de ar. Também foram gravadas seis consultas
+sintéticas e um baseline neutro pelo mesmo locutor. As cópias de processamento
+usam WAV PCM 16 bits, 16 kHz mono; os áudios ficam fora do Git.
+
+O caminho da consulta principal do P001 é `data/audio/P001_consulta.wav` e o
+baseline é `data/audio/P001_baseline.wav`. Uma fixture textual permite executar
+a demonstração totalmente offline e explicitamente marcada como mock.
 
 ### 8.2 Transcrição, sentimento e termos críticos
 
-> **A preencher:**
-> - transcrição com Azure Speech to Text (pt-BR), com timestamps;
-> - sentimento por frase e termos críticos ("falta de ar", "dor no peito", "desmaiei") com Azure AI Language, por entidade e regex;
-> - cache das respostas em `outputs/audio/cache/`.
+Azure Speech usa reconhecimento contínuo pt-BR, com timestamps de segmentos e
+palavras. Azure AI Language analisa sentimento por frase e entidades; expressões
+regulares configuráveis encontram “falta de ar”, “dor no peito”, “desmaiei”,
+“dispneia” e “sonolência”. Menções negadas ou hipotéticas simples são
+excluídas e preservadas no JSON para revisão.
+
+Findings usam `termo_critico` e `sentimento_muito_negativo`, com evidência
+textual e limiares no YAML. O cache usa hash do conteúdo e dos parâmetros, sem
+persistir chaves. NER genérico não é modelo clínico; sentimento não representa
+gravidade.
 
 ### 8.3 Notas de evolução clínica
 
-> **A preencher:** o mesmo fluxo do Azure AI Language aplicado às notas, com
-> Findings `source: text` para os termos críticos e para a mudança entre notas
-> consecutivas.
+O mesmo pipeline Language processa as notas em ordem temporal. `notes.json`
+expõe termos adicionados, persistentes e ausentes na nota seguinte. Os Findings
+`source: text` preservam essa comparação e o termo em `evidence.term`, sem criar
+eventos duplicados. Os offsets do `patients.yaml` são aplicados a todas as saídas.
 
 ### 8.4 Indicador experimental de alteração vocal
 
-> **A preencher:**
-> - medidas: taxa de fala, pausas, pitch, jitter e shimmer (`librosa` / `parselmouth`);
-> - comparação por z-score com a linha de base do próprio paciente: um `baseline.wav` neutro ou os primeiros 30 s da consulta;
-> - vozes de pessoas diferentes nunca são comparadas entre si.
+NumPy e Parselmouth medem taxa de fala, pausas, pitch, jitter e shimmer em
+janelas de 5 segundos. Z-scores comparam apenas o mesmo locutor com seu baseline
+neutro. Sidecars `.wav.json` confirmam locutor e condição; não há diarização
+automática.
+
+O resultado é sempre descrito como **indicador experimental de alteração vocal,
+baseado em características acústicas**, sem diagnóstico de disartria, fadiga
+clínica ou dificuldade respiratória.
 
 ### 8.5 Saídas e interface
 
 | Para | Artefato | Formato |
 |---|---|---|
 | Integrante 4 | Findings de áudio: termo crítico, sentimento muito negativo, indicador vocal alterado | `outputs/audio/<paciente>/findings.jsonl` |
-| Integrante 4 | Findings de texto: termo crítico na nota, piora entre notas | `outputs/text/<paciente>/findings.jsonl` |
-| Integrante 4 (dashboard) | Transcrição com timestamps, sentimento e termos destacados; notas com termos destacados | `outputs/audio/<paciente>/transcript.json`, `outputs/text/<paciente>/notes.json` |
-| Integrante 3 (opcional) | Medicamentos citados na consulta | `outputs/audio/<paciente>/entities.json` |
+| Integrante 4 | Findings de texto com comparação entre notas | `outputs/text/<paciente>/findings.jsonl` |
+| Integrante 4 (dashboard) | Transcrição com timestamps e notas destacadas | `outputs/audio/<paciente>/transcript.json`, `outputs/text/<paciente>/notes.json` |
 
-Interface: `analyze(input, patient_id) -> list[Finding]` e
-`python -m modules.audio.run --input ... --patient P001 --out findings.jsonl`,
-aplicando o `demo_offset` do `patients.yaml`.
+```powershell
+# Demonstração offline, marcada como mock
+python -m modules.audio.run --scenario --patient P001 --mock
+
+# Cenário real completo: consulta, baseline e notas
+python -m modules.audio.run --scenario --patient P001 --baseline data/audio/P001_baseline.wav --allow-azure
+```
+
+Interface Python: `from modules.audio import analyze`, seguida de
+`analyze(input, patient_id) -> list[Finding]`. Chamadas Azure nessa interface
+dependem de `TC_AUDIO_ALLOW_AZURE=1`; a CLI exige `--allow-azure`. Mock nunca é
+usado como fallback silencioso nem substitui saídas reais.
 
 ### 8.6 Métricas e resultados
 
-> **A preencher:**
-> - WER numa amostra revisada à mão;
-> - acerto dos termos críticos, no áudio e nas notas;
-> - concordância do indicador com o roteiro de cada gravação.
->
-> Sempre com a ressalva de amostra (seção 12).
+Validação em CPython 3.13.18 / Windows x64: **43 testes do I2 passaram**.
+Na suíte completa, **118 passaram e 6 foram pulados** apenas por ausência dos
+pesos YOLOv8/OpenPose.
+
+O cenário real no Azure gerou 10 Findings de áudio e 5 de texto para a consulta
+principal. As seis consultas foram processadas separadamente e revisadas por uma
+pessoa. Em 432 palavras revisadas, ocorreu uma diferença, resultando em WER de
+**0,23%**. Os seis termos críticos esperados foram encontrados, sem falso positivo
+nessa amostra (precisão, recall e F1 de **100%** nos documentos com termos). A
+classificação vocal coincidiu com o roteiro nas seis gravações, com concordância
+e cobertura de **100%**.
+
+Esses números descrevem somente uma amostra sintética pequena, de um locutor e
+preparada para demonstração. Não são métricas clínicas nem estimam desempenho
+hospitalar. Procedimento, denominadores e reprodução estão no capítulo técnico.
 
 ## 9. Detecção de anomalias (Integrante 3)
 
@@ -1277,7 +1302,7 @@ desempenho esperado em ambiente hospitalar real.
 | Vídeo | Velocidade do YOLOv8n-pose em CPU | 68 a 78 FPS | seção 7.5 |
 | Vídeo | OpenPose × YOLOv8-pose contra o gabarito 2D (erro médio) | 46,0 px × 39,7 px; 0,77 × 59,3 FPS | seção 7.7 |
 | Vídeo | Erro do ângulo do joelho × 3D real, de perfil (OpenPose × YOLOv8-pose) | 8,8° × 11,8° | seção 7.7 |
-| Áudio e texto | WER, termos críticos, concordância do indicador | A preencher | seção 8.6 |
+| Áudio e texto | WER; termos críticos; concordância do indicador | 0,23%; P/R/F1 100% nos 6 termos; 100% em 6/6 gravações | seção 8.6 |
 | Anomalias | Precisão, recall e atraso de detecção | A preencher | seção 9.3 |
 
 ### 10.3 Limitações
