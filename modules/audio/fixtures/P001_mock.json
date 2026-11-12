@@ -1,0 +1,10 @@
+{
+  "mock": true,
+  "description": "Roteiro FICTÍCIO escrito à mão. Não é transcrição Azure nem evidência acústica.",
+  "segments": [
+    {"start": 0.0, "end": 5.0, "text": "Hoje estou confortável em repouso.", "words": []},
+    {"start": 15.0, "end": 20.0, "text": "Não tenho dor no peito.", "words": []},
+    {"start": 75.0, "end": 79.0, "text": "Agora sinto falta de ar ao levantar.", "words": []},
+    {"start": 80.0, "end": 84.0, "text": "Estou muito angustiado com essa mudança.", "words": []}
+  ]
+}

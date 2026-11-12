@@ -1,0 +1,46 @@
+# Limiares experimentais, não calibrados clinicamente.
+speech:
+  language: pt-BR
+  timeout_seconds: 600
+language:
+  language: pt
+  model_version: latest
+  api_version: '2023-04-01'
+  negative_threshold: 0.90
+  min_sentence_chars: 8
+  entity_threshold: 0.70
+severity:
+  medium: 0.50
+  high: 0.85
+  critical: 0.98
+terms:
+  - term: falta de ar
+    pattern: '\bfalta\s+de\s+ar\b'
+    score: 0.80
+  - term: dor no peito
+    pattern: '\bdor\s+no\s+peito\b'
+    score: 0.85
+  - term: desmaiei
+    pattern: '\b(?:desmaiei|desmaio|desmaiou)\b'
+    score: 0.85
+  - term: dispneia
+    pattern: '\bdispn[eé]ia(?:\s+aos\s+esforços)?\b'
+    score: 0.80
+  - term: sonolência
+    pattern: '\bsonol[eê]ncia\b'
+    score: 0.60
+vocal:
+  enabled: true
+  baseline_seconds: 30
+  window_seconds: 5
+  min_baseline_windows: 5
+  min_voiced_seconds: 1
+  min_features: 2
+  z_threshold: 2.5
+  score_z_cap: 5
+  std_epsilon: 0.000001
+  pitch_floor: 75
+  pitch_ceiling: 500
+  silence_dbfs: -40
+  frame_seconds: 0.02
+  min_pause_seconds: 0.20
