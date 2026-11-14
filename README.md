@@ -179,7 +179,7 @@ Legenda: ✅ feito · 🟡 provisório ou parcial · ⬜ pendente
 | Fusão: regra crítica do P001 e `alerts.jsonl` | 🟡 mínima (Integrante 1) |
 | Combinação ponderada dos scores em `config/fusion.yaml` | ✅ pesos por fonte e limiares por nível (seção 6.4); pesos e limiares a validar com o grupo |
 | Três níveis com deduplicação e cooldown por paciente e tipo | ✅ cooldown por paciente e tipo de alerta, com escalonamento (seção 6.4) |
-| E-mail SMTP no alerta crítico (obrigatório), `config/alerts.yaml`, `email_sent_at`, contingência `.eml` | ✅ `app/notify.py`, um envio por alerta (seção 6.4); falta o teste com conta real |
+| E-mail SMTP no alerta crítico (obrigatório), `config/alerts.yaml`, `email_sent_at`, contingência `.eml` | ✅ `app/notify.py`, um envio por alerta (seção 6.4); testado com conta Gmail real (senha de app) em 14/11 |
 | Upload de vídeo, áudio e nota no Streamlit; chamada a `analyze()` dos Integrantes 1 e 2; laço com o simulador do Integrante 3 | ⬜ |
 | Dashboard com frames do Integrante 1, transcrição e notas do Integrante 2, séries do Integrante 3 | 🟡 transcrição e série de movimentação |
 | Teste ponta a ponta do P001 com os módulos reais | 🟡 vídeo real + mocks de áudio, texto e anomalias |
@@ -533,6 +533,12 @@ E-mail do alerta crítico (`app/notify.py`, opções em `config/alerts.yaml`):
 - **Depois de uma falha real** o envio não é repetido sozinho; apague a linha
   do alerta em `alerts_delivery.jsonl` para tentar de novo.
 - **Segredos:** servidor, senha, remetente e destinatários vêm só do `.env`.
+- **Com Gmail (testado em 14/11):** use uma conta só para a demo, com
+  verificação em duas etapas, e gere uma senha de app (Conta Google →
+  Segurança → Senhas de app). No `.env`: `SMTP_HOST=smtp.gmail.com`,
+  `SMTP_PORT=587`, `SMTP_USER` e `ALERT_EMAIL_FROM` com o endereço dessa conta,
+  `SMTP_PASSWORD` com a senha de app e `ALERT_EMAIL_TO` com quem recebe. As
+  primeiras mensagens de uma conta nova podem cair no spam.
 
 Ainda não implementado (Integrante 4):
 - confirmação de leitura;
@@ -1336,7 +1342,7 @@ emite o alerta crítico e o e-mail. Estado de cada passo:
 | 4. Nota de evolução (Integrante 2) | "dispneia aos esforços" na nota recente → Finding `text` | mock |
 | 5. Vitais e prescrição (Integrante 3) | Queda de SpO2 → Finding `vitals` (alta); dose anômala → Finding `prescription` | mock |
 | 6. Fusão (Integrante 4) | Regra explícita na janela de 30 min → alerta crítico | ✅ alerta crítico às 10:48 (seção 6.4) |
-| 7. Alerta à equipe (Integrante 4) | E-mail chegando; "Ciente" se estável | 🟡 e-mail implementado, com contingência `.eml`; falta o teste com conta real e o "Ciente" |
+| 7. Alerta à equipe (Integrante 4) | E-mail chegando; "Ciente" se estável | 🟡 e-mail implementado e testado com conta real em 14/11, com contingência `.eml`; falta o "Ciente" |
 
 ### 10.2 Tabela-resumo de métricas
 
