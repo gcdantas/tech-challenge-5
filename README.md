@@ -179,7 +179,7 @@ Legenda: ✅ feito · 🟡 provisório ou parcial · ⬜ pendente
 | Fusão: regra crítica do P001 e `alerts.jsonl` | 🟡 mínima (Integrante 1) |
 | Combinação ponderada dos scores em `config/fusion.yaml` | ⬜ |
 | Três níveis com deduplicação e cooldown por paciente e tipo | 🟡 cooldown só por regra |
-| E-mail SMTP no alerta crítico (obrigatório), `config/alerts.yaml`, `email_sent_at`, contingência `.eml` | ⬜ |
+| E-mail SMTP no alerta crítico (obrigatório), `config/alerts.yaml`, `email_sent_at`, contingência `.eml` | ✅ `app/notify.py`, um envio por alerta (seção 6.4); falta o teste com conta real |
 | Upload de vídeo, áudio e nota no Streamlit; chamada a `analyze()` dos Integrantes 1 e 2; laço com o simulador do Integrante 3 | ⬜ |
 | Dashboard com frames do Integrante 1, transcrição e notas do Integrante 2, séries do Integrante 3 | 🟡 transcrição e série de movimentação |
 | Teste ponta a ponta do P001 com os módulos reais | 🟡 vídeo real + mocks de áudio, texto e anomalias |
@@ -242,12 +242,12 @@ OpenPose.
 |---|---|---|
 | `AZURE_SPEECH_KEY`, `AZURE_SPEECH_REGION` | `.env` | Azure Speech to Text (Integrante 2) |
 | `AZURE_LANGUAGE_KEY`, `AZURE_LANGUAGE_ENDPOINT` | `.env` | Azure AI Language (Integrante 2) |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `ALERT_EMAIL_FROM` | `.env` | e-mail do alerta crítico (Integrante 4) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `ALERT_EMAIL_FROM`, `ALERT_EMAIL_TO` | `.env` | e-mail do alerta crítico (Integrante 4); `ALERT_EMAIL_TO` aceita vários destinatários separados por vírgula |
 | `TC_OUTPUTS_DIR` | opcional | troca a pasta `outputs/` (usado nos testes) |
 | `TC_PATIENTS_PATH` | opcional | troca o `data/patients.yaml` (usado nos testes) |
 
 Os nomes das variáveis do `.env` são provisórios: os Integrantes 2 e 4 definem
-os finais. Nenhum código usa o `.env` ainda.
+os finais.
 
 ### GPU (opcional)
 
@@ -482,9 +482,22 @@ Formato provisório de cada linha do `alerts.jsonl`:
  "created_at": "2026-11-03T10:48:00-03:00", "email_sent_at": null}
 ```
 
+E-mail do alerta crítico (`app/notify.py`, opções em `config/alerts.yaml`):
+- **Quando:** logo depois da fusão, para os níveis listados em `email.levels`
+  (padrão: só `critico`).
+- **Conteúdo:** nível, paciente, horário, regra e cada Finding que sustentou o
+  alerta. O assunto sai com o prefixo `[DEMONSTRAÇÃO]`.
+- **Um envio por alerta:** o `alert_id` é determinístico e cada entrega fica em
+  `outputs/alerts_delivery.jsonl`, então recarregar a tela não reenvia.
+- **Contingência:** sem SMTP no `.env`, ou se o envio falhar, a mensagem é
+  gravada em `outputs/alerts/eml/<alert_id>.eml` e o dashboard mostra o motivo.
+  `email_sent_at` só é preenchido quando o servidor aceitou a mensagem.
+- **Depois de uma falha real** o envio não é repetido sozinho; apague a linha
+  do alerta em `alerts_delivery.jsonl` para tentar de novo.
+- **Segredos:** servidor, senha, remetente e destinatários vêm só do `.env`.
+
 Ainda não implementado (Integrante 4):
 - combinação ponderada dos scores;
-- e-mail;
 - confirmação de leitura;
 - upload e chamada a `analyze()`;
 - processamento incremental (hoje o `alerts.jsonl` é reescrito a cada execução).
@@ -1286,7 +1299,7 @@ emite o alerta crítico e o e-mail. Estado de cada passo:
 | 4. Nota de evolução (Integrante 2) | "dispneia aos esforços" na nota recente → Finding `text` | mock |
 | 5. Vitais e prescrição (Integrante 3) | Queda de SpO2 → Finding `vitals` (alta); dose anômala → Finding `prescription` | mock |
 | 6. Fusão (Integrante 4) | Regra explícita na janela de 30 min → alerta crítico | ✅ alerta crítico às 10:48 (seção 6.4) |
-| 7. Alerta à equipe (Integrante 4) | E-mail chegando; "Ciente" se estável | ⬜ e-mail não implementado |
+| 7. Alerta à equipe (Integrante 4) | E-mail chegando; "Ciente" se estável | 🟡 e-mail implementado, com contingência `.eml`; falta o teste com conta real e o "Ciente" |
 
 ### 10.2 Tabela-resumo de métricas
 
@@ -1338,6 +1351,7 @@ python -m pytest
 | `test_mocks_schema.py` | todos os mocks validam, estão nos caminhos do plano, são marcados e determinísticos |
 | `test_p001_smoke.py` | cenário P001: alerta crítico pela regra, controle negativo fora da janela |
 | `test_app_smoke.py` | Streamlit inicia com e sem saídas |
+| `test_notify.py` | e-mail do alerta crítico: envio único, contingência `.eml`, falha do SMTP, senha fora dos arquivos |
 | `test_video_*.py` | geometria, regras, pipeline, CLI, OpenPose, leito, métricas e desenho dos rótulos do vídeo |
 | `test_comparacao.py` | cálculos da comparação OpenPose × YOLOv8-pose (ângulo 3D, trecho parado, variação, vista) |
 

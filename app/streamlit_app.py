@@ -2,7 +2,7 @@
 
 Carrega data/patients.yaml, lê todos os findings.jsonl em outputs/, mostra uma
 linha do tempo por paciente e roda a fusão mínima, gravando outputs/alerts.jsonl.
-Sem e-mail nesta versão.
+O alerta crítico também vai por e-mail (app/notify.py); sem SMTP no .env, vira .eml.
 
     streamlit run app/streamlit_app.py
 """
@@ -19,6 +19,7 @@ if str(ROOT) not in sys.path:  # `streamlit run` coloca só app/ no sys.path
 import altair as alt  # noqa: E402
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
+from dotenv import load_dotenv  # noqa: E402
 
 from app.fusion import fuse, load_fusion_config, write_alerts  # noqa: E402
 from app.loaders import (  # noqa: E402
@@ -29,7 +30,10 @@ from app.loaders import (  # noqa: E402
     outputs_dir,
     patients_path,
 )
+from app.notify import SmtpSettings, load_alerts_config, notify, read_deliveries  # noqa: E402
 from contracts.patients import load_patients  # noqa: E402
+
+load_dotenv(ROOT / ".env", override=False)
 
 LEVEL_LABEL = {"critico": "Crítico", "urgente": "Urgente", "atencao": "Atenção"}
 
@@ -45,6 +49,10 @@ pf = load_patients(patients_path())
 # --- Fusão de todos os pacientes (grava alerts.jsonl) -------------------------
 all_loaded = load_findings(out_dir)
 alerts = fuse(all_loaded.findings, load_fusion_config())
+# E-mail do alerta crítico: um envio por alerta, mesmo com a tela recarregando.
+alerts_cfg = load_alerts_config()
+alerts = notify(alerts, all_loaded.findings, out_dir, cfg=alerts_cfg, settings=SmtpSettings.from_env())
+deliveries = read_deliveries(out_dir)
 alerts_path = write_alerts(out_dir / "alerts.jsonl", alerts)
 
 # --- Barra lateral ------------------------------------------------------------
@@ -90,8 +98,19 @@ for a in sorted(patient_alerts, key=lambda a: (a.level != "critico", a.created_a
         f"**{LEVEL_LABEL[a.level]}** · {a.created_at.strftime('%d/%m %H:%M:%S')} · `{a.rule}`  \n"
         f"{a.description}  \nFindings: {len(a.finding_ids)}"
     )
+    d = deliveries.get(a.alert_id)
+    if d is not None and d.sent_at is not None:
+        msg += (
+            f"  \nE-mail enviado à equipe às {d.sent_at.strftime('%H:%M:%S')} "
+            f"({len(d.recipients)} destinatário(s))."
+        )
+    elif d is not None:
+        msg += f"  \nE-mail não enviado ({d.error}). Cópia de contingência: `{d.eml_path}`."
     {"critico": st.error, "urgente": st.warning, "atencao": st.info}[a.level](msg)
-st.caption(f"Alertas gravados em `{alerts_path}`. Envio de e-mail ainda não implementado (Integrante 4).")
+st.caption(
+    f"Alertas gravados em `{alerts_path}`. Níveis que geram e-mail: "
+    f"{', '.join(alerts_cfg.email.levels) if alerts_cfg.email.enabled else 'nenhum (desligado)'}."
+)
 
 # --- Linha do tempo -----------------------------------------------------------
 st.subheader("Linha do tempo multimodal")
