@@ -1,12 +1,15 @@
-# Fusão tardia MÍNIMA (versão provisória do M1, feita pelo I1; dono: I4).
+# Fusão tardia (dono: I4). Código em app/fusion.py; e-mail em config/alerts.yaml.
 #
-# Cada modalidade já chega como Findings. Por paciente, regras explícitas com
-# precedência avaliadas numa janela deslizante. A combinação ponderada dos
-# scores (heurística de priorização) e o envio de e-mail ainda não existem:
-# ficam para o I4.
+# Cada modalidade já chega como Findings. Por paciente, em três etapas:
+#   1. regras explícitas (rules), com precedência;
+#   2. combinação ponderada dos scores (weighted) nos Findings que sobraram;
+#   3. o que ainda sobrar vira alerta isolado pela severidade.
 
 window_minutes: 30
-# Uma mesma regra não dispara de novo para o mesmo paciente dentro do cooldown.
+# Deduplicação: um alerta do mesmo tipo (a regra, "ponderado" ou
+# isolado:<fonte>:<tipo>) não sai de novo para o mesmo paciente dentro do
+# cooldown; os Findings novos entram em suppressed_finding_ids do alerta
+# anterior. Se o nível subir (ex.: atenção -> urgente), o alerta sai mesmo assim.
 cooldown_minutes: 30
 
 # Termos que contam como "termo respiratório" (comparados com evidence.term,
@@ -38,3 +41,30 @@ rules:
       - - {source: audio, type: termo_critico, respiratory_term: true}
         - {source: text, type: termo_critico, respiratory_term: true}
       - - {source: vitals, type: dessaturacao}
+
+# Combinação ponderada dos scores. HEURÍSTICA DE PRIORIZAÇÃO do protótipo, não
+# probabilidade clínica calibrada; as regras acima têm precedência.
+#
+# Findings de fontes diferentes que começam na mesma janela (window_minutes a
+# partir do primeiro) viram um único alerta "ponderado", com
+#   score = soma(peso_fonte * maior score da fonte) / soma(pesos das fontes presentes)
+# O nível é o maior entre o do score (thresholds) e o da severidade de cada
+# Finding: a combinação pode subir o nível, nunca rebaixar.
+weighted:
+  enabled: true
+  # Peso relativo de cada fonte (confiabilidade do sinal no protótipo). Fonte
+  # sem peso aqui não entra na combinação e só gera alerta isolado.
+  source_weights:
+    vitals: 1.0         # medida fisiológica objetiva
+    prescription: 0.9   # erro de prescrição verificável no registro
+    movement: 0.8       # saída do leito, derivada do vídeo
+    text: 0.7           # termo crítico na nota de evolução
+    audio: 0.6          # termo na fala e indicador vocal EXPERIMENTAL
+    video: 0.6          # desvio na fisioterapia
+  # Mínimo de fontes diferentes para combinar (uma fonte só não é corroboração).
+  min_sources: 2
+  # Score mínimo de cada nível. Sem "critico": só regra explícita ou Finding
+  # de severidade critical geram alerta crítico (e e-mail).
+  thresholds:
+    atencao: 0.3
+    urgente: 0.75

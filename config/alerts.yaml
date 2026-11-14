@@ -1,0 +1,18 @@
+# Saídas do alerta (dono: I4). Todo alerta aparece no dashboard e em
+# outputs/alerts.jsonl; os níveis listados aqui também geram e-mail.
+#
+# Servidor, usuário, senha, remetente e destinatários NÃO ficam neste arquivo:
+# vêm do .env (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, ALERT_EMAIL_FROM,
+# ALERT_EMAIL_TO). Sem SMTP configurado, ou se o envio falhar, a mensagem é
+# gravada como .eml em outputs/<eml_dir>/ (contingência).
+
+email:
+  enabled: true
+  # Níveis que geram e-mail: atencao | urgente | critico
+  levels: [critico]
+  # Prefixo do assunto. Os pacientes são sintéticos, então todo e-mail sai marcado.
+  subject_prefix: "[DEMONSTRAÇÃO]"
+  # Pasta dos .eml de contingência, relativa a outputs/
+  eml_dir: alerts/eml
+  # Tempo máximo de espera pelo servidor SMTP, em segundos
+  timeout_seconds: 15
