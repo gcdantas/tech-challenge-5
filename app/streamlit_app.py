@@ -93,11 +93,15 @@ st.subheader("Alertas")
 patient_alerts = [a for a in alerts if a.patient_id == patient_id]
 if not patient_alerts:
     st.info("Nenhum alerta para este paciente.")
-for a in sorted(patient_alerts, key=lambda a: (a.level != "critico", a.created_at)):
+_LEVEL_RANK = {"critico": 0, "urgente": 1, "atencao": 2}
+for a in sorted(patient_alerts, key=lambda a: (_LEVEL_RANK[a.level], -(a.score or 0.0), a.created_at)):
     msg = (
-        f"**{LEVEL_LABEL[a.level]}** · {a.created_at.strftime('%d/%m %H:%M:%S')} · `{a.rule}`  \n"
-        f"{a.description}  \nFindings: {len(a.finding_ids)}"
+        f"**{LEVEL_LABEL[a.level]}** · {a.created_at.strftime('%d/%m %H:%M:%S')} · `{a.rule}`"
+        + (f" · score {a.score:.2f}" if a.score is not None else "")
+        + f"  \n{a.description}  \nFindings: {len(a.finding_ids)}"
     )
+    if a.suppressed_finding_ids:
+        msg += f" (+{len(a.suppressed_finding_ids)} do mesmo tipo dentro do cooldown, sem novo alerta)"
     d = deliveries.get(a.alert_id)
     if d is not None and d.sent_at is not None:
         msg += (

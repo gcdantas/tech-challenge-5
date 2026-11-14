@@ -177,8 +177,8 @@ Legenda: ✅ feito · 🟡 provisório ou parcial · ⬜ pendente
 | Esqueleto do repositório | 🟡 provisório (Integrante 1) |
 | Streamlit com linha do tempo | 🟡 esqueleto (Integrante 1) |
 | Fusão: regra crítica do P001 e `alerts.jsonl` | 🟡 mínima (Integrante 1) |
-| Combinação ponderada dos scores em `config/fusion.yaml` | ⬜ |
-| Três níveis com deduplicação e cooldown por paciente e tipo | 🟡 cooldown só por regra |
+| Combinação ponderada dos scores em `config/fusion.yaml` | ✅ pesos por fonte e limiares por nível (seção 6.4); pesos e limiares a validar com o grupo |
+| Três níveis com deduplicação e cooldown por paciente e tipo | ✅ cooldown por paciente e tipo de alerta, com escalonamento (seção 6.4) |
 | E-mail SMTP no alerta crítico (obrigatório), `config/alerts.yaml`, `email_sent_at`, contingência `.eml` | ✅ `app/notify.py`, um envio por alerta (seção 6.4); falta o teste com conta real |
 | Upload de vídeo, áudio e nota no Streamlit; chamada a `analyze()` dos Integrantes 1 e 2; laço com o simulador do Integrante 3 | ⬜ |
 | Dashboard com frames do Integrante 1, transcrição e notas do Integrante 2, séries do Integrante 3 | 🟡 transcrição e série de movimentação |
@@ -460,18 +460,55 @@ O que a versão mínima faz:
   - a transcrição, com os termos críticos destacados.
 - Roda a fusão de todos os pacientes e grava `outputs/alerts.jsonl`.
 
-Fusão (`app/fusion.py`, regras em `config/fusion.yaml`):
-- **Regra crítica do plano:** indicador vocal alterado + termo respiratório
-  (na consulta ou na nota) + queda de SpO2 na mesma janela de 30 min. A lista
-  de termos respiratórios fica no YAML.
-- **Cooldown** de 30 min por regra e paciente.
-- **Findings fora de regra** viram alerta isolado pela severidade:
-  `low`/`medium` → atenção, `high` → urgente, `critical` → crítico.
+Fusão (`app/fusion.py`, parâmetros em `config/fusion.yaml`), por paciente e
+em três etapas:
 
-Com o vídeo real e os mocks dos Integrantes 2 e 3, o P001 tem hoje:
-- 1 alerta crítico, às 10:48;
-- 2 alertas urgentes, das repetições com severidade alta;
-- 17 alertas de atenção.
+1. **Regras explícitas, com precedência.** A regra crítica do plano é
+   indicador vocal alterado + termo respiratório (na consulta ou na nota) +
+   queda de SpO2 na mesma janela de 30 min. A lista de termos respiratórios
+   fica no YAML.
+2. **Combinação ponderada dos scores** (`weighted`), nos Findings que sobraram.
+   Findings de pelo menos duas fontes diferentes que começam na mesma janela
+   de 30 min viram um único alerta `ponderado`, com
+
+   `score = Σ (peso da fonte × maior score da fonte) / Σ (pesos das fontes presentes)`
+
+   | Fonte | Peso | Por quê |
+   |---|---|---|
+   | `vitals` | 1,0 | medida fisiológica objetiva |
+   | `prescription` | 0,9 | erro verificável no registro |
+   | `movement` | 0,8 | saída do leito, derivada do vídeo |
+   | `text` | 0,7 | termo crítico na nota de evolução |
+   | `audio` | 0,6 | termo na fala e indicador vocal experimental |
+   | `video` | 0,6 | desvio na fisioterapia |
+
+   - Nível pelo score: ≥ 0,30 → atenção, ≥ 0,75 → urgente. A combinação
+     **não gera alerta crítico sozinha**: crítico (e e-mail) só por regra
+     explícita ou Finding de severidade `critical`.
+   - O nível final é o maior entre o do score e o da severidade de cada
+     Finding: a combinação pode subir o nível (corroboração entre fontes),
+     nunca rebaixar.
+   - É uma heurística de priorização do protótipo, não probabilidade clínica
+     calibrada (seção 12). Os pesos e limiares são escolhas de projeto, a
+     validar com o grupo.
+3. **Findings isolados.** O que ainda sobrar vira alerta pela severidade:
+   `low`/`medium` → atenção, `high` → urgente, `critical` → crítico.
+
+**Deduplicação e cooldown por paciente e tipo.** O tipo do alerta é a regra,
+`ponderado` ou `isolado:<fonte>:<tipo>`. Dentro do cooldown (30 min), um novo
+alerta do mesmo tipo e paciente não é emitido: seus Findings entram em
+`suppressed_finding_ids` do alerta anterior, que aparece no dashboard com
+"+N do mesmo tipo". Se o nível subir (por exemplo, atenção → urgente), o
+alerta sai mesmo dentro do cooldown. O `alert_id` depende só dos Findings que
+dispararam o alerta, então os deduplicados não provocam e-mail repetido.
+
+Todo alerta traz `score`, a combinação ponderada dos seus Findings, usada para
+ordenar o dashboard dentro de cada nível.
+
+Com os mocks do M1, o P001 tem:
+- 1 alerta crítico às 10:48, pela regra (o termo da nota entra como deduplicado);
+- 1 alerta de atenção `ponderado` às 10:20, com vídeo, saída do leito e dose
+  duplicada (score 0,68).
 
 Formato provisório de cada linha do `alerts.jsonl`:
 
@@ -479,7 +516,8 @@ Formato provisório de cada linha do `alerts.jsonl`:
 {"alert_id": "...", "patient_id": "P001", "level": "critico", "rule": "respiratorio_vocal_spo2",
  "description": "...", "finding_ids": ["...", "...", "..."],
  "window_start": "2026-11-03T10:30:30-03:00", "window_end": "2026-11-03T10:48:00-03:00",
- "created_at": "2026-11-03T10:48:00-03:00", "email_sent_at": null}
+ "created_at": "2026-11-03T10:48:00-03:00", "email_sent_at": null,
+ "score": 0.862, "suppressed_finding_ids": ["..."]}
 ```
 
 E-mail do alerta crítico (`app/notify.py`, opções em `config/alerts.yaml`):
@@ -497,7 +535,6 @@ E-mail do alerta crítico (`app/notify.py`, opções em `config/alerts.yaml`):
 - **Segredos:** servidor, senha, remetente e destinatários vêm só do `.env`.
 
 Ainda não implementado (Integrante 4):
-- combinação ponderada dos scores;
 - confirmação de leitura;
 - upload e chamada a `analyze()`;
 - processamento incremental (hoje o `alerts.jsonl` é reescrito a cada execução).
@@ -1350,6 +1387,7 @@ python -m pytest
 | `test_patients.py` | `patients.yaml` e alinhamento temporal |
 | `test_mocks_schema.py` | todos os mocks validam, estão nos caminhos do plano, são marcados e determinísticos |
 | `test_p001_smoke.py` | cenário P001: alerta crítico pela regra, controle negativo fora da janela |
+| `test_fusion.py` | combinação ponderada dos scores (pesos, janela, limiares, precedência das regras) e deduplicação com cooldown por paciente e tipo |
 | `test_app_smoke.py` | Streamlit inicia com e sem saídas |
 | `test_notify.py` | e-mail do alerta crítico: envio único, contingência `.eml`, falha do SMTP, senha fora dos arquivos |
 | `test_video_*.py` | geometria, regras, pipeline, CLI, OpenPose, leito, métricas e desenho dos rótulos do vídeo |

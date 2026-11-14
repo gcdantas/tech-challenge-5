@@ -27,10 +27,18 @@ def test_p001_alerta_critico_pela_regra_do_plano(mocks_dir, tmp_path):
     starts = [by_id[i].timestamp_start for i in crit.finding_ids]
     assert max(starts) - min(starts) <= timedelta(minutes=30)
 
-    # Findings 1 e 2 do cenário (vídeo e saída do leito), isolados, viram alertas de atenção.
-    isolated = {a.rule: a.level for a in alerts if a.rule.startswith("isolado:")}
-    assert isolated["isolado:video:amplitude_incompleta"] == "atencao"
-    assert isolated["isolado:movement:saida_do_leito"] == "atencao"
+    # Findings 1 e 2 do cenário (vídeo e saída do leito) viram alerta de atenção:
+    # caem na mesma janela e entram juntos na combinação ponderada dos scores.
+    level_of = {}
+    for a in alerts:
+        for fid in [*a.finding_ids, *a.suppressed_finding_ids]:
+            level_of[(by_id[fid].source, by_id[fid].type)] = (a.level, a.rule)
+    assert level_of[("video", "amplitude_incompleta")] == ("atencao", "ponderado")
+    assert level_of[("movement", "saida_do_leito")] == ("atencao", "ponderado")
+
+    # Todo Finding aparece em algum alerta (emitido ou deduplicado).
+    assert set(level_of) == {(f.source, f.type) for f in loaded.findings}
+    assert len(_critical(alerts)) == 1
 
     # alerts.jsonl mostra o mesmo que a fusão
     path = write_alerts(tmp_path / "alerts.jsonl", alerts)

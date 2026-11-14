@@ -147,6 +147,10 @@ def build_email(
         f"ALERTA {LEVEL_LABEL[alert.level]} - paciente {alert.patient_id}",
         f"Emitido em: {when}",
         f"Regra: {alert.rule}",
+    ]
+    if alert.score is not None:
+        lines.append(f"Score combinado (heurística de priorização, não probabilidade clínica): {alert.score:.2f}")
+    lines += [
         "",
         alert.description.strip(),
         "",
